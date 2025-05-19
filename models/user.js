@@ -60,6 +60,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BOOLEAN,
       defaultValue: false
     },
+    account_type: {
+      type: DataTypes.ENUM('admin', 'user'),
+      defaultValue: 'user'
+    },
     createdAt: {
       type: DataTypes.BIGINT,
       defaultValue: moment().valueOf()

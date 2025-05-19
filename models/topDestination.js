@@ -4,7 +4,7 @@ const moment = require('moment');
 module.exports = (sequelize, DataTypes) => {
   class TopDestination extends Model {
     static associate(models) {
-      TopDestination.belongsTo(models.User, { foreignKey: 'user_id' });
+      TopDestination.belongsTo(models.User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
     }
   }
   TopDestination.init({
@@ -17,14 +17,21 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: false
     },
-    name: {
-      type: DataTypes.STRING, // e.g., "Niagara Falls"
+    type: {
+      type: DataTypes.ENUM('continent', 'country', 'city'),
       allowNull: false
     },
-    image: DataTypes.STRING, // URL of the destination image
-    rating: {
-      type: DataTypes.FLOAT, // e.g., 4.5
-      defaultValue: 0
+    value: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    count: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1
+    },
+    visited: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
     },
     createdAt: {
       type: DataTypes.BIGINT,
@@ -37,7 +44,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'TopDestination',
-    timestamps: false
+    timestamps: true
   });
   return TopDestination;
 };

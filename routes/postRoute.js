@@ -150,4 +150,34 @@ router.get('/post/:postId', verifyToken, postController.getPostDetail);
  */
 router.get('/post/userDetails/:userId', verifyToken, postController.getUserDetails);
 
+/**
+ * @swagger
+ * /post/wishlist:
+ *   post:
+ *     summary: Add a post to wishlist
+ *     tags: [Post]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               post_id:
+ *                 type: string
+ *                 description: ID of the post to wishlist
+ *     responses:
+ *       200:
+ *         description: Post wishlisted successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Post not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/post/wishlist', verifyToken, postController.wishlistPost);
+
 module.exports = router;

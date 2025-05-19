@@ -430,3 +430,57 @@ exports.resetPassword = async (req, res) => {
     return apiResponse.InternalServerError(res, 'Failed to reset password');
   }
 };
+
+exports.syncContacts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { contacts } = req.body;
+
+    if (!Array.isArray(contacts) || contacts.length === 0) {
+      return apiResponse.ValidationError(res, 'Contacts array is required');
+    }
+
+    // Normalize phone numbers (remove spaces, dashes, etc.)
+    const normalizedContacts = contacts.map(phone =>
+      phone.replace(/[\s\-()+]/g, '')
+    );
+
+    // Find users in the app with these phone numbers (excluding self)
+    const users = await User.findAll({
+      where: {
+        phone: { [Op.in]: normalizedContacts },
+        id: { [Op.ne]: userId }
+      },
+      attributes: ['id', 'full_name', 'phone', 'image', 'email']
+    });
+
+    // Get all user ids from found users
+    const userIds = users.map(u => u.id);
+
+    // Find which of these users are already followed by the current user
+    const following = await models.Follower.findAll({
+      where: {
+        follower_id: userId,
+        user_id: { [Op.in]: userIds }
+      },
+      attributes: ['user_id']
+    });
+    const followingIds = following.map(f => f.user_id);
+
+    // Prepare response: show follow status for each user
+    const result = users.map(u => ({
+      id: u.id,
+      full_name: u.full_name,
+      phone: u.phone,
+      image: u.image,
+      email: u.email,
+      isFollowing: followingIds.includes(u.id),
+      showFollow: !followingIds.includes(u.id)
+    }));
+
+    return apiResponse.SuccessResponseWithData(res, 'Contacts synced successfully', result);
+  } catch (error) {
+    console.error('Error in syncContacts:', error);
+    return apiResponse.InternalServerError(res, 'Failed to sync contacts');
+  }
+};

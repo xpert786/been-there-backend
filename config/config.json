@@ -15,7 +15,7 @@
   },
   "production": {
     "username": "root",
-    "password": null,
+    "password": "Been!New-2025",
     "database": "travelo",
     "host": "127.0.0.1",
     "dialect": "mysql"

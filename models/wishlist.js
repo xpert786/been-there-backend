@@ -4,7 +4,10 @@ const moment = require('moment');
 module.exports = (sequelize, DataTypes) => {
   class Wishlist extends Model {
     static associate(models) {
-      Wishlist.belongsTo(models.User, { foreignKey: 'user_id' });
+      // Wishlist belongs to User
+      Wishlist.belongsTo(models.User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+      // Wishlist belongs to Post
+      Wishlist.belongsTo(models.Post, { foreignKey: 'post_id', onDelete: 'CASCADE' });
     }
   }
   Wishlist.init({
@@ -17,9 +20,13 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: false
     },
-    destination: {
-      type: DataTypes.STRING, 
+    post_id: {
+      type: DataTypes.UUID,
       allowNull: false
+    },
+    destination: {
+      type: DataTypes.STRING, // Store as "city,country"
+      allowNull: true
     },
     createdAt: {
       type: DataTypes.BIGINT,
@@ -32,7 +39,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'Wishlist',
-    timestamps: false
+    timestamps: true
   });
   return Wishlist;
 };

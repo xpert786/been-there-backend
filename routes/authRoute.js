@@ -267,4 +267,82 @@ router.post('/verifyOtp', authController.verifyOtp);
  */
 router.post('/resetPassword', authController.resetPassword);
 
+/**
+ * @swagger
+ * /auth/editProfile:
+ *   put:
+ *     summary: Edit user profile (only update provided fields)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               full_name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               public_profile:
+ *                 type: boolean
+ *               location_sharing:
+ *                 type: boolean
+ *               message_request:
+ *                 type: boolean
+ *               instagram_sync:
+ *                 type: boolean
+ *               contact_sync:
+ *                 type: boolean
+ *               notification_type:
+ *                 type: string
+ *                 description: Comma separated notification type ids (e.g. "1,2,3")
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/editProfile', verifyToken, authController.editProfile);
+
+/**
+ * @swagger
+ * /auth/syncContacts:
+ *   post:
+ *     summary: Sync user contacts and show which users are in the app and follow status
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               contacts:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of phone numbers to sync
+ *     responses:
+ *       200:
+ *         description: Synced contacts with follow status
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/syncContacts', verifyToken, authController.syncContacts);
+
 module.exports = router;

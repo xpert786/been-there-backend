@@ -96,5 +96,36 @@ router.post('/post/like', socialController.likePost);
  */
 router.post('/post/comment/:postId', socialController.commentOnPost);
 
+/**
+ * @swagger
+ * /post/wishlist:
+ *   get:
+ *     summary: Get user's wishlist with post details and users who visited same city/country and are followed
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Wishlist fetched successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/post/wishlist', socialController.getWishlist);
+
+/**
+ * @swagger
+ * /post/topdestinations:
+ *   get:
+ *     summary: Get user's top destinations with post details and users who visited same city/country and are followed
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Top destinations fetched successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/post/topdestinations', socialController.getTopDestinations);
 
 module.exports = router;

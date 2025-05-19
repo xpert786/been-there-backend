@@ -1,11 +1,10 @@
 'use strict';
 const { Model } = require('sequelize');
-const moment = require('moment'); // Import moment
 
 module.exports = (sequelize, DataTypes) => {
   class Highlight extends Model {
     static associate(models) {
-      Highlight.belongsTo(models.User, { foreignKey: 'user_id' });
+      Highlight.belongsTo(models.User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
     }
   }
   Highlight.init({
@@ -19,25 +18,21 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     type: {
-      type: DataTypes.STRING, // e.g., "continent", "country", "city"
+      type: DataTypes.ENUM('continent', 'country', 'city'),
       allowNull: false
     },
     value: {
-      type: DataTypes.STRING, // e.g., "North America", "USA", "San Francisco"
+      type: DataTypes.STRING,
       allowNull: false
     },
-    createdAt: {
-      type: DataTypes.BIGINT,
-      defaultValue: moment().valueOf()
-    },
-    updatedAt: {
-      type: DataTypes.BIGINT,
-      defaultValue: moment().valueOf()
+    count: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1
     }
   }, {
     sequelize,
     modelName: 'Highlight',
-    timestamps: false
+    timestamps: true
   });
   return Highlight;
 };
