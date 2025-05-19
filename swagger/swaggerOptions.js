@@ -22,6 +22,11 @@ const swaggerOptions = {
     security: [{ bearerAuth: [] }],
     servers: [
       {
+        url: process.env.BASEURL || 'http://ec2-54-219-132-165.us-west-1.compute.amazonaws.com:3000',
+        description: 'Production server',
+      },
+
+      {
         url: process.env.LOCALURL||'http://localhost:3000',
         description: 'Local server',
       },
