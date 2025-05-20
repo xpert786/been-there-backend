@@ -345,4 +345,22 @@ router.put('/editProfile', verifyToken, authController.editProfile);
  */
 router.post('/syncContacts', verifyToken, authController.syncContacts);
 
+/**
+ * @swagger
+ * /auth/deleteAccount:
+ *   delete:
+ *     summary: Delete the authenticated user's account
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/deleteAccount', verifyToken, authController.deleteAccount);
+
 module.exports = router;

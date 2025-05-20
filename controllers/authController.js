@@ -109,7 +109,7 @@ exports.getProfile = async (req, res) => {
 
     // Fetch user details with related data
     const user = await User.findByPk(userId, {
-      attributes: { exclude: ['password'] }, // Exclude password field
+      attributes: { exclude: ['password'] },
       include: [
         { model: Wishlist, attributes: ['id', 'destination'] },
         { model: TopDestination, attributes: ['id', 'name', 'image', 'rating'] },
@@ -121,6 +121,20 @@ exports.getProfile = async (req, res) => {
       return apiResponse.NotFound(res, 'User not found');
     }
 
+    // Fetch wishlist with post details (like getAllWishlist)
+    const wishlist = await Wishlist.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: Post,
+          include: [
+            { model: User, attributes: ['id', 'full_name', 'image'] },
+            { model: models.Photo, attributes: ['id', 'image_url'] }
+          ]
+        }
+      ]
+    });
+
     // Fetch additional counts
     const totalPosts = await Post.count({ where: { user_id: userId } });
     const totalFollowers = await Follower.count({ where: { user_id: userId } });
@@ -128,6 +142,7 @@ exports.getProfile = async (req, res) => {
 
     return apiResponse.SuccessResponseWithData(res, 'Profile retrieved successfully', {
       user,
+      wishlist, // include detailed wishlist with post info
       stats: {
         totalPosts,
         totalFollowers,
@@ -482,5 +497,23 @@ exports.syncContacts = async (req, res) => {
   } catch (error) {
     console.error('Error in syncContacts:', error);
     return apiResponse.InternalServerError(res, 'Failed to sync contacts');
+  }
+};
+
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return apiResponse.NotFound(res, 'User not found');
+    }
+
+    await user.destroy();
+
+    return apiResponse.SuccessResponseWithOutData(res, 'Account deleted successfully');
+  } catch (error) {
+    console.error('Error in deleteAccount:', error);
+    return apiResponse.InternalServerError(res, 'Failed to delete account');
   }
 };

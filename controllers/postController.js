@@ -26,9 +26,16 @@ exports.createPost = async (req, res) => {
     // Extract user ID from the token
     const user_id = req.user.id;
 
-    // Create the post
+    // Normalize values
+    const normCountry = country ? country.trim().toLowerCase() : '';
+    const normCity = req.body.city ? req.body.city.trim().toLowerCase() : '';
+    const continent = countryToContinent(normCountry);
+
+    // Create the post (add continent field)
     const newPost = await Post.create({
       country,
+      city,
+      continent, // <-- Store continent in Post
       visit_date,
       reason_for_visit,
       overall_rating,
@@ -40,7 +47,6 @@ exports.createPost = async (req, res) => {
       longitude,  
       latitude,   
       user_id,
-      city,
     });
 
     // Handle photo uploads
@@ -53,11 +59,6 @@ exports.createPost = async (req, res) => {
     //   );
     //   await Promise.all(photoPromises);
     // }
-
-    // Normalize values
-    const normCountry = country ? country.trim().toLowerCase() : '';
-    const normCity = req.body.city ? req.body.city.trim().toLowerCase() : '';
-    const continent = countryToContinent(normCountry);
 
     // Helper to upsert highlight/topdestination
     async function upsertHighlightAndTopDestination(user_id, type, value) {
@@ -303,143 +304,5 @@ exports.wishlistPost = async (req, res) => {
   }
 };
 
-exports.getWishlist = async (req, res) => {
-  const user_id = req.user.id;
-  try {
-    // Get wishlist with post details
-    const wishlist = await Wishlist.findAll({
-      where: { user_id },
-      include: [
-        {
-          model: Post,
-          include: [
-            { model: User, attributes: ['id', 'full_name', 'image'] },
-            { model: Photo, attributes: ['id', 'image_url'] }
-          ]
-        }
-      ]
-    });
-
-    // For each wishlist item, find users you follow who visited same city/country
-    const followed = await Follower.findAll({ where: { follower_id: user_id }, attributes: ['user_id'] });
-    const followedIds = followed.map(f => f.user_id);
-
-    const result = [];
-    for (const item of wishlist) {
-      const post = item.Post;
-      let cityUsers = [], countryUsers = [];
-      if (post) {
-        if (post.city) {
-          cityUsers = await Post.findAll({
-            where: {
-              city: post.city,
-              user_id: { [Op.in]: followedIds }
-            },
-            include: [{ model: User, attributes: ['id', 'full_name', 'image'] }]
-          });
-        }
-        if (post.country) {
-          countryUsers = await Post.findAll({
-            where: {
-              country: post.country,
-              user_id: { [Op.in]: followedIds }
-            },
-            include: [{ model: User, attributes: ['id', 'full_name', 'image'] }]
-          });
-        }
-      }
-      result.push({
-        wishlistId: item.id,
-        destination: item.destination,
-        post,
-        cityVisitCount: cityUsers.length,
-        countryVisitCount: countryUsers.length,
-        cityVisitors: cityUsers.map(u => u.User),
-        countryVisitors: countryUsers.map(u => u.User)
-      });
-    }
-
-    return apiResponse.SuccessResponseWithData(res, 'Wishlist fetched successfully', result);
-  } catch (error) {
-    console.error(error);
-    return apiResponse.InternalServerError(res, error);
-  }
-};
-
-exports.getTopDestinations = async (req, res) => {
-  console.log('Fetching top destinations------------------------------');
-  const user_id = req.user.id;
-  try {
-    console.log('Fetching top destinations for user:', user_id);
-
-    // Get top destinations for the user
-    const topDestinations = await TopDestination.findAll({
-      where: { user_id },
-      order: [['count', 'DESC']],
-      limit: 10
-    });
-    console.log('Top destinations found:', topDestinations.length);
-
-    // For each destination, get posts (from any user) and users you follow who visited same city/country
-    const followed = await Follower.findAll({ where: { follower_id: user_id }, attributes: ['user_id'] });
-    const followedIds = followed.map(f => f.user_id);
-    console.log('Followed user IDs:', followedIds);
-
-    const result = [];
-    for (const dest of topDestinations) {
-      console.log('Processing destination:', dest.type, dest.value);
-      let posts = [], users = [];
-      if (dest.type === 'city') {
-        posts = await Post.findAll({
-          where: { city: dest.value },
-          include: [
-            { model: User, attributes: ['id', 'full_name', 'image'] },
-            { model: Photo, attributes: ['id', 'image_url'] }
-          ]
-        });
-        console.log(`Posts found for city "${dest.value}":`, posts.length);
-
-        users = await Post.findAll({
-          where: { city: dest.value, user_id: { [Op.in]: followedIds } },
-          include: [{ model: User, attributes: ['id', 'full_name', 'image'] }]
-        });
-        console.log(`Followed users who visited city "${dest.value}":`, users.length);
-      } else if (dest.type === 'country') {
-        posts = await Post.findAll({
-          where: { country: dest.value },
-          include: [
-            { model: User, attributes: ['id', 'full_name', 'image'] },
-            { model: Photo, attributes: ['id', 'image_url'] }
-          ]
-        });
-        console.log(`Posts found for country "${dest.value}":`, posts.length);
-
-        users = await Post.findAll({
-          where: { country: dest.value, user_id: { [Op.in]: followedIds } },
-          include: [{ model: User, attributes: ['id', 'full_name', 'image'] }]
-        });
-        console.log(`Followed users who visited country "${dest.value}":`, users.length);
-      }
-
-      // Fix: If there are no posts for this destination, still return the destination info
-      result.push({
-        destinationId: dest.id,
-        type: dest.type,
-        value: dest.value,
-        count: dest.count,
-        visited: dest.visited,
-        posts, // will be [] if none found
-        visitCount: users.length,
-        visitors: users.map(u => u.User)
-      });
-    }
-
-    console.log('Final result for top destinations:', result.length);
-    return apiResponse.SuccessResponseWithData(res, 'Top destinations fetched successfully', result);
-  } catch (error) {
-    console.error('Error in getTopDestinations:', error);
-    return apiResponse.InternalServerError(res, error);
-  }
-};
 
 

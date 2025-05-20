@@ -20,8 +20,6 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true
     },
     full_name: DataTypes.STRING,
-    first_name: DataTypes.STRING,
-    last_name: DataTypes.STRING,
     email: DataTypes.STRING,
     password: DataTypes.STRING,
     phone: DataTypes.STRING,

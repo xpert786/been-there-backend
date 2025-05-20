@@ -98,9 +98,39 @@ router.post('/post/comment/:postId', socialController.commentOnPost);
 
 /**
  * @swagger
- * /post/wishlist:
+ * /topdestinations/all:
  *   get:
- *     summary: Get user's wishlist with post details and users who visited same city/country and are followed
+ *     summary: Get all top destinations for the authenticated user (filter by value)
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: filterType
+ *         schema:
+ *           type: string
+ *           enum: [continent, country, city]
+ *         required: false
+ *         description: Filter top destinations by type (continent, country, or city)
+ *       - in: query
+ *         name: filterValue
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter by value (e.g. 'asia', 'india', 'delhi'). Matches continent, country, or city.
+ *     responses:
+ *       200:
+ *         description: Top destinations fetched successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/topdestinations/all', socialController.getTopDestinations);
+
+/**
+ * @swagger
+ * /wishlist/all:
+ *   get:
+ *     summary: Get all wishlist items for the authenticated user (raw table)
  *     tags: [Social]
  *     security:
  *       - bearerAuth: []
@@ -110,22 +140,6 @@ router.post('/post/comment/:postId', socialController.commentOnPost);
  *       500:
  *         description: Internal server error
  */
-router.get('/post/wishlist', socialController.getWishlist);
-
-/**
- * @swagger
- * /post/topdestinations:
- *   get:
- *     summary: Get user's top destinations with post details and users who visited same city/country and are followed
- *     tags: [Social]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Top destinations fetched successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/post/topdestinations', socialController.getTopDestinations);
+router.get('/wishlist/all', socialController.getAllWishlist);
 
 module.exports = router;

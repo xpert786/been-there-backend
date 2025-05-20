@@ -107,11 +107,63 @@ exports.commentOnPost = async (req, res) => {
   }
 };
 
-exports.getWishlist = async (req, res) => {
+// Get all top destinations for the authenticated user (simple, no joins)
+exports.getTopDestinations = async (req, res) => {
   const user_id = req.user.id;
-  
+  const { filterValue } = req.query; // User passes a value like 'asia', 'india', 'delhi'
   try {
-    // Get wishlist with posts and related data
+    // Use Op.like for MySQL/MariaDB (case-insensitive if collation is set)
+    const whereClause = { user_id };
+    if (filterValue) {
+      whereClause.value = { [Op.like]: filterValue.toLowerCase() };
+    }
+
+    const topDestinations = await TopDestination.findAll({
+      where: whereClause,
+      order: [['count', 'DESC']]
+    });
+
+    const result = [];
+    for (const dest of topDestinations) {
+      let postWhere = {
+        [Op.or]: [
+          { continent: dest.value },
+          { country: dest.value },
+          { city: dest.value }
+        ]
+      };
+      const posts = await Post.findAll({
+        where: postWhere,
+        include: [
+          { model: User, attributes: ['id', 'full_name', 'image'] },
+          { model: Photo, attributes: ['id', 'image_url'] }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+
+      result.push({
+        destinationId: dest.id,
+        type: dest.type,
+        value: dest.value,
+        count: dest.count,
+        visited: dest.visited,
+        posts
+      });
+    }
+
+    return apiResponse.SuccessResponseWithData(res, 'Top destinations fetched successfully', result);
+  } catch (error) {
+    console.error('Error in getTopDestinations:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+
+// Get all wishlist items for the authenticated user (simple, no joins)
+exports.getAllWishlist = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    // Include the related post details for each wishlist item
     const wishlist = await Wishlist.findAll({
       where: { user_id },
       include: [
@@ -124,173 +176,15 @@ exports.getWishlist = async (req, res) => {
         }
       ]
     });
-
-    // Get followed users in a single query
-    const followed = await Follower.findAll({ 
-      where: { follower_id: user_id }, 
-      attributes: ['user_id'] 
-    });
-    const followedIds = followed.map(f => f.user_id);
-
-    // Get all unique cities and countries from wishlist posts
-    const cities = [];
-    const countries = [];
-    
-    wishlist.forEach(item => {
-      if (item.Post?.city) cities.push(item.Post.city);
-      if (item.Post?.country) countries.push(item.Post.country);
-    });
-
-    // Get all city and country visitors in two queries instead of N queries
-    const [cityVisitors, countryVisitors] = await Promise.all([
-      Post.findAll({
-        where: {
-          city: { [Op.in]: [...new Set(cities)] },
-          user_id: { [Op.in]: followedIds }
-        },
-        include: [{ model: User, attributes: ['id', 'full_name', 'image'] }],
-        group: ['city', 'user_id'] // Avoid duplicates
-      }),
-      Post.findAll({
-        where: {
-          country: { [Op.in]: [...new Set(countries)] },
-          user_id: { [Op.in]: followedIds }
-        },
-        include: [{ model: User, attributes: ['id', 'full_name', 'image'] }],
-        group: ['country', 'user_id'] // Avoid duplicates
-      })
-    ]);
-
-    // Create lookup maps for visitors
-    const cityVisitorsMap = cityVisitors.reduce((acc, post) => {
-      if (!acc[post.city]) acc[post.city] = [];
-      acc[post.city].push(post.User);
-      return acc;
-    }, {});
-
-    const countryVisitorsMap = countryVisitors.reduce((acc, post) => {
-      if (!acc[post.country]) acc[post.country] = [];
-      acc[post.country].push(post.User);
-      return acc;
-    }, {});
-
-    // Build response
-    const result = wishlist.map(item => {
-      const post = item.Post;
-      const cityVisitors = post?.city ? cityVisitorsMap[post.city] || [] : [];
-      const countryVisitors = post?.country ? countryVisitorsMap[post.country] || [] : [];
-
-      return {
-        wishlistId: item.id,
-        destination: item.destination,
-        post,
-        cityVisitCount: cityVisitors.length,
-        countryVisitCount: countryVisitors.length,
-        cityVisitors,
-        countryVisitors
-      };
-    });
-
-    return apiResponse.SuccessResponseWithData(res, 'Wishlist fetched successfully', result);
+    // Format: each wishlist item includes its post details
+    return apiResponse.SuccessResponseWithData(res, 'Wishlist fetched successfully', wishlist);
   } catch (error) {
-    console.error('Error in getWishlist:', error);
+    console.error('Error in getAllWishlist:', error);
     return apiResponse.InternalServerError(res, error);
   }
 };
 
-exports.getTopDestinations = async (req, res) => {
-  const user_id = req.user.id;
-  
-  try {
-    // Get top destinations
-    const topDestinations = await TopDestination.findAll({
-      where: { user_id },
-      order: [['count', 'DESC']],
-      limit: 10
-    });
 
-    // Get followed users
-    const followed = await Follower.findAll({ 
-      where: { follower_id: user_id }, 
-      attributes: ['user_id'] 
-    });
-    const followedIds = followed.map(f => f.user_id);
 
-    // Separate cities and countries
-    const cities = topDestinations.filter(d => d.type === 'city').map(d => d.value);
-    const countries = topDestinations.filter(d => d.type === 'country').map(d => d.value);
 
-    // Get all posts and visitors in parallel
-    const [cityPosts, countryPosts, cityVisitors, countryVisitors] = await Promise.all([
-      Post.findAll({
-        where: { city: { [Op.in]: cities } },
-        include: [
-          { model: User, attributes: ['id', 'full_name', 'image'] },
-          { model: Photo, attributes: ['id', 'image_url'] }
-        ]
-      }),
-      Post.findAll({
-        where: { country: { [Op.in]: countries } },
-        include: [
-          { model: User, attributes: ['id', 'full_name', 'image'] },
-          { model: Photo, attributes: ['id', 'image_url'] }
-        ]
-      }),
-      Post.findAll({
-        where: { 
-          city: { [Op.in]: cities },
-          user_id: { [Op.in]: followedIds }
-        },
-        include: [{ model: User, attributes: ['id', 'full_name', 'image'] }],
-        group: ['city', 'user_id']
-      }),
-      Post.findAll({
-        where: { 
-          country: { [Op.in]: countries },
-          user_id: { [Op.in]: followedIds }
-        },
-        include: [{ model: User, attributes: ['id', 'full_name', 'image'] }],
-        group: ['country', 'user_id']
-      })
-    ]);
-
-    // Create lookup maps
-    const postsMap = {};
-    [...cityPosts, ...countryPosts].forEach(post => {
-      const key = post.city ? `city:${post.city}` : `country:${post.country}`;
-      if (!postsMap[key]) postsMap[key] = [];
-      postsMap[key].push(post);
-    });
-
-    const visitorsMap = {};
-    [...cityVisitors, ...countryVisitors].forEach(post => {
-      const key = post.city ? `city:${post.city}` : `country:${post.country}`;
-      if (!visitorsMap[key]) visitorsMap[key] = [];
-      visitorsMap[key].push(post.User);
-    });
-
-    // Build response
-    const result = topDestinations.map(dest => {
-      const key = `${dest.type}:${dest.value}`;
-      const posts = postsMap[key] || [];
-      const visitors = visitorsMap[key] || [];
-
-      return {
-        destinationId: dest.id,
-        type: dest.type,
-        value: dest.value,
-        count: dest.count,
-        visited: dest.visited,
-        posts,
-        visitCount: visitors.length,
-        visitors
-      };
-    });
-
-    return apiResponse.SuccessResponseWithData(res, 'Top destinations fetched successfully', result);
-  } catch (error) {
-    console.error('Error in getTopDestinations:', error);
-    return apiResponse.InternalServerError(res, error);
-  }
-};
 

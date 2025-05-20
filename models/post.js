@@ -17,6 +17,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     country: DataTypes.STRING,
     city: DataTypes.STRING,
+    continent: DataTypes.STRING, // <-- Add continent field
     longitude: DataTypes.STRING,
     latitude: DataTypes.STRING,
     visit_date: DataTypes.DATE,
