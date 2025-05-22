@@ -11,6 +11,7 @@ const Wishlist = models.Wishlist;
 const TopDestination = models.TopDestination;
 const Highlight = models.Highlight;
 
+
 const countryToContinent = require('../utils/countryToContinent');
 const s3Util = require('../utils/s3');
 
