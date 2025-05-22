@@ -1,7 +1,7 @@
 const models = require('../models');
 const User = models.User;
 const jwt = require('jsonwebtoken');
-const apiResponse = require('../utills/apiResponse');
+const apiResponse = require('../utils/apiResponse');
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;

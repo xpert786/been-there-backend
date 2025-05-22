@@ -1,9 +1,10 @@
 const models = require('../models');
 const User = models.User;
-const apiResponse = require('../utills/apiResponse');
+const apiResponse = require('../utils/apiResponse');
 const { Op } = require('sequelize');
 const validator = require('validator');
 const moment = require('moment');
+const s3Util = require('../utils/s3');
 
 // Get all users (excluding sensitive data)
 exports.getAllUsers = async (req, res) => {
@@ -232,12 +233,25 @@ exports.updateUser = async (req, res) => {
       public_profile: value => typeof value === 'boolean'
     };
 
+    // Handle image update: if image is present, delete previous from S3 (if any), then update
+    if (updateData.image !== undefined) {
+      if (user.image) {
+        const prevKey = user.image.includes('amazonaws.com/')
+          ? user.image.split('.amazonaws.com/')[1]
+          : null;
+        if (prevKey) {
+          try { await s3Util.deleteFromS3(prevKey); } catch (e) { /* ignore */ }
+        }
+      }
+      user.image = updateData.image;
+    }
+
     const updates = {};
     const errors = [];
 
     // Validate each field
     for (const [field, value] of Object.entries(updateData)) {
-      if (field in fieldValidators) {
+      if (field in fieldValidators && field !== 'image') {
         if (fieldValidators[field](value)) {
           updates[field] = value;
         } else {

@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const models = require('../models');
 const Post = models.Post;
 const Photo = models.Photo;
-const apiResponse = require('../utills/apiResponse');
+const apiResponse = require('../utils/apiResponse');
 const { Op } = require('sequelize');
 const Follower = models.Follower;
 const Comment = models.Comment;
@@ -12,102 +12,106 @@ const TopDestination = models.TopDestination;
 const Highlight = models.Highlight;
 
 const countryToContinent = require('../utils/countryToContinent');
+const s3Util = require('../utils/s3');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
-exports.createPost = async (req, res) => {
-  // Validate request body
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return apiResponse.ValidationError(res, errors.array().map(err => err.msg).join(', '));
-  }
-
-  const { country, visit_date, reason_for_visit, overall_rating, experience, cost_rating, safety_rating, food_rating, place_type, longitude, latitude, city } = req.body;
-
-  try {
-    // Extract user ID from the token
-    const user_id = req.user.id;
-
-    // Normalize values
-    const normCountry = country ? country.trim().toLowerCase() : '';
-    const normCity = req.body.city ? req.body.city.trim().toLowerCase() : '';
-    const continent = countryToContinent(normCountry);
-
-    // Create the post (add continent field)
-    const newPost = await Post.create({
-      country,
-      city,
-      continent, // <-- Store continent in Post
-      visit_date,
-      reason_for_visit,
-      overall_rating,
-      experience,
-      cost_rating,
-      safety_rating,
-      food_rating,
-      place_type,
-      longitude,  
-      latitude,   
-      user_id,
-    });
-
-    // Handle photo uploads
-    // if (req.files && req.files.length > 0) {
-    //   const photoPromises = req.files.map(file =>
-    //     Photo.create({
-    //       post_id: newPost.id,
-    //       image_url: file.path, // Store the file path
-    //     })
-    //   );
-    //   await Promise.all(photoPromises);
-    // }
-
-    // Helper to upsert highlight/topdestination
-    async function upsertHighlightAndTopDestination(user_id, type, value) {
-      // Highlight
-      const [highlight, created] = await Highlight.findOrCreate({
-        where: { user_id, type, value: value.toLowerCase() },
-        defaults: { count: 1 }
-      });
-      if (!created) {
-        highlight.count += 1;
-        await highlight.save();
-      }
-      // TopDestination
-      const [top, topCreated] = await TopDestination.findOrCreate({
-        where: { user_id, type, value: value.toLowerCase() },
-        defaults: { count: 1, visited: true }
-      });
-      if (!topCreated) {
-        top.count += 1;
-        top.visited = true;
-        await top.save();
-      }
+exports.createPost = [
+  upload.array('photos', 5), // up to 5 images
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return apiResponse.ValidationError(res, errors.array().map(err => err.msg).join(', '));
     }
 
-    // Update highlights and top destinations for this user
-    await upsertHighlightAndTopDestination(user_id, 'continent', continent);
-    if (normCountry) await upsertHighlightAndTopDestination(user_id, 'country', normCountry);
-    if (normCity) await upsertHighlightAndTopDestination(user_id, 'city', normCity);
+    const { country, visit_date, reason_for_visit, overall_rating, experience, cost_rating, safety_rating, food_rating, place_type, longitude, latitude, city } = req.body;
 
-    // Optionally: Keep only top N destinations for each type in TopDestination
-    const types = ['continent', 'country', 'city'];
-    for (const type of types) {
-      const tops = await TopDestination.findAll({
-        where: { user_id, type },
-        order: [['count', 'DESC']],
+    try {
+      const user_id = req.user.id;
+      const normCountry = country ? country.trim().toLowerCase() : '';
+      const normCity = req.body.city ? req.body.city.trim().toLowerCase() : '';
+      const continent = countryToContinent(normCountry);
+
+      // Create the post (add continent field)
+      const newPost = await Post.create({
+        country,
+        city,
+        continent,
+        visit_date,
+        reason_for_visit,
+        overall_rating,
+        experience,
+        cost_rating,
+        safety_rating,
+        food_rating,
+        place_type,
+        longitude,
+        latitude,
+        user_id,
       });
-      const keep = 3; // keep top 3
-      if (tops.length > keep) {
-        const toDelete = tops.slice(keep);
-        for (const d of toDelete) await d.destroy();
-      }
-    }
 
-    return apiResponse.SuccessResponseWithData(res, 'Post created successfully', newPost);
-  } catch (error) {
-    console.error(error);
-    return apiResponse.InternalServerError(res, error);
+      // Upload images to S3 and store in Photo table
+      let photoRecords = [];
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          const imageUrl = await s3Util.uploadToS3(file);
+          const photo = await Photo.create({
+            post_id: newPost.id,
+            image_url: imageUrl
+          });
+          photoRecords.push(photo);
+        }
+      }
+
+      // Attach photos to the post object for response
+      const postWithPhotos = newPost.toJSON();
+      postWithPhotos.photos = photoRecords;
+
+      // Helper to upsert highlight/topdestination
+      async function upsertHighlightAndTopDestination(user_id, type, value) {
+        const [highlight, created] = await Highlight.findOrCreate({
+          where: { user_id, type, value: value.toLowerCase() },
+          defaults: { count: 1 }
+        });
+        if (!created) {
+          highlight.count += 1;
+          await highlight.save();
+        }
+        const [top, topCreated] = await TopDestination.findOrCreate({
+          where: { user_id, type, value: value.toLowerCase() },
+          defaults: { count: 1, visited: true }
+        });
+        if (!topCreated) {
+          top.count += 1;
+          top.visited = true;
+          await top.save();
+        }
+      }
+
+      await upsertHighlightAndTopDestination(user_id, 'continent', continent);
+      if (normCountry) await upsertHighlightAndTopDestination(user_id, 'country', normCountry);
+      if (normCity) await upsertHighlightAndTopDestination(user_id, 'city', normCity);
+
+      const types = ['continent', 'country', 'city'];
+      for (const type of types) {
+        const tops = await TopDestination.findAll({
+          where: { user_id, type },
+          order: [['count', 'DESC']],
+        });
+        const keep = 3;
+        if (tops.length > keep) {
+          const toDelete = tops.slice(keep);
+          for (const d of toDelete) await d.destroy();
+        }
+      }
+
+      return apiResponse.SuccessResponseWithData(res, 'Post created successfully', postWithPhotos);
+    } catch (error) {
+      console.error(error);
+      return apiResponse.InternalServerError(res, error);
+    }
   }
-};
+];
 
 exports.getPosts = async (req, res) => {
   const { type, page = 1, limit = 10 } = req.query;
@@ -229,11 +233,12 @@ exports.getUserDetails = async (req, res) => {
   const { userId } = req.params;
 
   try {
+    // Only select fields that actually exist in TopDestination table
     const user = await User.findByPk(userId, {
       attributes: { exclude: ["password"] },
       include: [
         { model: Wishlist, attributes: ["id", "destination"] },
-        { model: TopDestination, attributes: ["id", "name", "image", "rating"] },
+        { model: TopDestination, attributes: ["id", "type", "value", "count", "visited", "createdAt", "updatedAt"] },
         { model: Highlight, attributes: ["id", "type", "value"] },
       ],
     });
@@ -247,7 +252,7 @@ exports.getUserDetails = async (req, res) => {
     const totalFollowing = await Follower.count({ where: { follower_id: userId } });
 
     // Check if current user is the owner of the profile being viewed
-    const isOwner = currentUserId === userId; // No need for parseInt if IDs are same type
+    const isOwner = currentUserId === userId;
 
     return apiResponse.SuccessResponseWithData(res, "User details retrieved successfully", {
       user: {

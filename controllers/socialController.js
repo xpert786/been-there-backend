@@ -2,7 +2,10 @@ const models = require('../models');
 const { User, Post, Like, Comment, Follower, Wishlist, TopDestination, Photo } = models;
 const { Op } = require('sequelize');
 const moment = require('moment');
-const apiResponse = require('../utills/apiResponse');
+const apiResponse = require('../utils/apiResponse');
+const s3Util = require('../utils/s3');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' }); // temp local storage
 
 exports.followUser = async (req, res) => {
   const { id: user_id } = req.user;
@@ -180,6 +183,90 @@ exports.getAllWishlist = async (req, res) => {
     return apiResponse.SuccessResponseWithData(res, 'Wishlist fetched successfully', wishlist);
   } catch (error) {
     console.error('Error in getAllWishlist:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+/**
+ * @swagger
+ * /image/upload:
+ *   post:
+ *     summary: Upload an image to S3
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Image uploaded successfully
+ *       400:
+ *         description: No image provided
+ *       500:
+ *         description: Internal server error
+ */
+exports.uploadImage = [
+  upload.single('image'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return apiResponse.ValidationError(res, 'No image provided');
+      }
+      const url = await s3Util.uploadToS3(req.file);
+      return apiResponse.SuccessResponseWithData(res, 'Image uploaded successfully', { url });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return apiResponse.InternalServerError(res, error);
+    }
+  }
+];
+
+/**
+ * @swagger
+ * /image/delete:
+ *   delete:
+ *     summary: Delete an image from S3
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               key:
+ *                 type: string
+ *                 description: S3 object key (e.g. "uploads/filename.jpg")
+ *     responses:
+ *       200:
+ *         description: Image deleted successfully
+ *       400:
+ *         description: Key is required
+ *       500:
+ *         description: Internal server error
+ */
+exports.deleteImage = async (req, res) => {
+  try {
+    const { key } = req.body;
+    if (!key) {
+      return apiResponse.ValidationError(res, 'Key is required');
+    }
+    await s3Util.deleteFromS3(key);
+    return apiResponse.SuccessResponseWithOutData(res, 'Image deleted successfully');
+  } catch (error) {
+    console.error('Error deleting image:', error);
     return apiResponse.InternalServerError(res, error);
   }
 };

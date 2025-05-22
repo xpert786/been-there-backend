@@ -10,9 +10,10 @@ const Wishlist = models.Wishlist;
 const TopDestination = models.TopDestination;
 const Highlight = models.Highlight;
 const UserOtp = models.UserOtp; // Assuming UserOtp is added to models
-const apiResponse = require('../utills/apiResponse');
+const apiResponse = require('../utils/apiResponse');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto'); // For generating secure tokens
+const s3Util = require('../utils/s3');
 
 const transporter = nodemailer.createTransport({
   service: process.env.EMAIL_SERVICE || 'gmail',
@@ -112,7 +113,8 @@ exports.getProfile = async (req, res) => {
       attributes: { exclude: ['password'] },
       include: [
         { model: Wishlist, attributes: ['id', 'destination'] },
-        { model: TopDestination, attributes: ['id', 'name', 'image', 'rating'] },
+        // Only select fields that actually exist in TopDestination table
+        { model: TopDestination, attributes: ['id', 'type', 'value', 'count', 'visited', 'createdAt', 'updatedAt'] },
         { model: Highlight, attributes: ['id', 'type', 'value'] },
       ],
     });
@@ -171,6 +173,7 @@ exports.editProfile = async (req, res) => {
       instagram_sync,
       contact_sync,
       notification_type,
+      image // Accept image URL or S3 key
     } = req.body;
 
     // Validate notification_type format (e.g., "1", "1,2", "1,2,3,4")
@@ -182,6 +185,20 @@ exports.editProfile = async (req, res) => {
     const user = await User.findByPk(userId);
     if (!user) {
       return apiResponse.NotFound(res, 'User not found');
+    }
+
+    // Handle image update: if image is present, delete previous from S3 (if any), then update
+    if (image !== undefined) {
+      if (user.image) {
+        // Extract S3 key from previous image URL if it is an S3 URL
+        const prevKey = user.image.includes('amazonaws.com/')
+          ? user.image.split('.amazonaws.com/')[1]
+          : null;
+        if (prevKey) {
+          try { await s3Util.deleteFromS3(prevKey); } catch (e) { /* ignore */ }
+        }
+      }
+      user.image = image;
     }
 
     // Update only the provided fields

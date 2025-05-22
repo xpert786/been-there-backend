@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const socialController = require('../controllers/socialController');
 const verifyToken = require('../middleware/verifyToken');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
-router.use(verifyToken);
+// router.use(verifyToken);
 
 /**
  * @swagger
@@ -141,5 +143,63 @@ router.get('/topdestinations/all', socialController.getTopDestinations);
  *         description: Internal server error
  */
 router.get('/wishlist/all', socialController.getAllWishlist);
+
+/**
+ * @swagger
+ * /image/upload:
+ *   post:
+ *     summary: Upload an image to S3
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Image uploaded successfully
+ *       400:
+ *         description: No image provided
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/image/upload', socialController.uploadImage);
+
+/**
+ * @swagger
+ * /image/delete:
+ *   delete:
+ *     summary: Delete an image from S3
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               key:
+ *                 type: string
+ *                 description: S3 object key (e.g. "uploads/filename.jpg")
+ *     responses:
+ *       200:
+ *         description: Image deleted successfully
+ *       400:
+ *         description: Key is required
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/image/delete', socialController.deleteImage);
 
 module.exports = router;

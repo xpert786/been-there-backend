@@ -271,14 +271,16 @@ router.post('/resetPassword', authController.resetPassword);
  * @swagger
  * /auth/editProfile:
  *   put:
- *     summary: Edit user profile (only update provided fields)
+ *     summary: Edit user profile (only update provided fields, including image in binary format)
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -303,6 +305,10 @@ router.post('/resetPassword', authController.resetPassword);
  *               notification_type:
  *                 type: string
  *                 description: Comma separated notification type ids (e.g. "1,2,3")
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Image file to upload (binary format). If present, previous image will be deleted from S3 and replaced.
  *     responses:
  *       200:
  *         description: Profile updated successfully

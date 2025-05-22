@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const verifyToken = require('../middleware/verifyToken');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
 router.use(verifyToken);
 
@@ -86,10 +88,12 @@ router.get('/admin/user/:id', adminController.getUserById);
  * @swagger
  * /api/admin/user/{id}:
  *   put:
- *     summary: Edit user (only update provided fields)
+ *     summary: Edit user (only update provided fields, including image in binary format)
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
  *     parameters:
  *       - in: path
  *         name: id
@@ -100,7 +104,7 @@ router.get('/admin/user/:id', adminController.getUserById);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -116,6 +120,8 @@ router.get('/admin/user/:id', adminController.getUserById);
  *                 type: string
  *               image:
  *                 type: string
+ *                 format: binary
+ *                 description: Image file to upload (binary format). If present, previous image will be deleted from S3 and replaced.
  *               block:
  *                 type: boolean
  *               public_profile:
@@ -130,7 +136,8 @@ router.get('/admin/user/:id', adminController.getUserById);
  *       500:
  *         description: Internal server error
  */
-router.put('/admin/user/:id', adminController.updateUser);
+router.put('/admin/user/:id', upload.single('image'), adminController.updateUser);
+
 
 /**
  * @swagger
