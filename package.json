@@ -1,0 +1,36 @@
+{
+  "name": "travelo",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.5",
+    "aws-sdk": "^2.1692.0",
+    "bcrypt": "^5.1.0",
+    "countryjs": "^1.8.0",
+    "dotenv": "^16.5.0",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-validator": "^6.15.0",
+    "jsonwebtoken": "^9.0.0",
+    "mssql": "^11.0.1",
+    "multer": "^1.4.5-lts.2",
+    "mysql2": "^3.14.1",
+    "nodemailer": "^7.0.3",
+    "sequelize": "^6.37.7",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "sequelize-cli": "^6.6.2"
+  }
+}
