@@ -2,8 +2,12 @@ const express = require('express');
 const { body } = require('express-validator');
 const postController = require('../controllers/postController');
 const verifyToken = require('../middleware/verifyToken');
+<<<<<<< HEAD
 const multer = require('multer');
 const upload = multer();
+=======
+const upload = require('../middleware/multer');
+>>>>>>> 3e8f7a108434718b2ceae581bd554605d3a9c69e
 
 const router = express.Router();
 
@@ -65,7 +69,11 @@ const router = express.Router();
 router.post(
   '/post',
   verifyToken,
+<<<<<<< HEAD
   upload.array('photos'), // this will handle multiple photo uploads
+=======
+  upload.array('photos', 5), // Allow up to 5 photos
+>>>>>>> 3e8f7a108434718b2ceae581bd554605d3a9c69e
   [
     body('country').notEmpty().withMessage('Country is required'),
     body('city').notEmpty().withMessage('City is required'),

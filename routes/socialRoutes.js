@@ -5,7 +5,11 @@ const verifyToken = require('../middleware/verifyToken');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
+<<<<<<< HEAD
 router.use(verifyToken);
+=======
+// router.use(verifyToken);
+>>>>>>> 3e8f7a108434718b2ceae581bd554605d3a9c69e
 
 /**
  * @swagger

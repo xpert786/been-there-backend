@@ -2,8 +2,12 @@ const express = require('express');
 const { body } = require('express-validator');
 const authController = require('../controllers/authController');
 const verifyToken = require('../middleware/verifyToken');
+<<<<<<< HEAD
 const multer = require('multer');
 const upload = multer();
+=======
+
+>>>>>>> 3e8f7a108434718b2ceae581bd554605d3a9c69e
 const router = express.Router();
 
 /**
@@ -320,7 +324,11 @@ router.post('/resetPassword', authController.resetPassword);
  *       500:
  *         description: Internal server error
  */
+<<<<<<< HEAD
 router.put('/editProfile', verifyToken, upload.single('image'), authController.editProfile);
+=======
+router.put('/editProfile', verifyToken, authController.editProfile);
+>>>>>>> 3e8f7a108434718b2ceae581bd554605d3a9c69e
 
 /**
  * @swagger
