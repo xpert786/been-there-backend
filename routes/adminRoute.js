@@ -3,11 +3,7 @@ const router = express.Router();
 const adminController = require('../controllers/adminController');
 const verifyToken = require('../middleware/verifyToken');
 const multer = require('multer');
-<<<<<<< HEAD
 const upload = multer();
-=======
-const upload = multer({ dest: 'uploads/' });
->>>>>>> 3e8f7a108434718b2ceae581bd554605d3a9c69e
 
 router.use(verifyToken);
 
@@ -114,13 +110,6 @@ router.get('/admin/user/:id', adminController.getUserById);
  *             properties:
  *               full_name:
  *                 type: string
-<<<<<<< HEAD
-=======
- *               email:
- *                 type: string
- *               phone:
- *                 type: string
->>>>>>> 3e8f7a108434718b2ceae581bd554605d3a9c69e
  *               country:
  *                 type: string
  *               address:
