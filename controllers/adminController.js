@@ -635,4 +635,43 @@ exports.editAdminProfile = async (req, res) => {
   }
 };
 
+// Create default admin user and return JWT token
+exports.createDefaultAdminAndGetToken = async (req, res) => {
+  try {
+    const email = 'admin12@yopmail.com';
+    const password = 'Testing1@1234';
+    const full_name = 'Default Admin';
+
+    let adminUser = await models.AdminUser.findOne({ where: { email } });
+    if (!adminUser) {
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash(password, 10);
+      adminUser = await models.AdminUser.create({
+        full_name,
+        email,
+        password: hashedPassword
+      });
+    }
+
+    // Generate JWT token
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: adminUser.id, email: adminUser.email, role: 'admin' },
+      process.env.SECRETKEY,
+      { expiresIn: '7d' }
+    );
+
+    // Do not return password
+    const { password: _, ...adminUserData } = adminUser.toJSON();
+
+    return apiResponse.SuccessResponseWithData(res, 'Default admin created and token generated', {
+      token,
+      admin: adminUserData
+    });
+  } catch (error) {
+    console.error('Error in createDefaultAdminAndGetToken:', error);
+    return apiResponse.InternalServerError(res, 'Failed to create default admin and generate token');
+  }
+};
+
 
