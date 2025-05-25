@@ -256,4 +256,221 @@ router.get('/admin/platform-stats', verifyToken, adminController.getPlatformStat
  */
 router.post('/admin/most-visited-countries', adminController.getMostVisitedCountries);
 
+/**
+ * @swagger
+ * /api/admin/user:
+ *   post:
+ *     summary: Create a new admin user
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - full_name
+ *               - email
+ *               - password
+ *             properties:
+ *               full_name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Admin user created successfully
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Failed to create admin user
+ */
+router.post('/admin/user', adminController.createAdminUser);
+
+/**
+ * @swagger
+ * /api/admin/admin-users:
+ *   get:
+ *     summary: Get all admin users (paginated)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number (default 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Items per page (default 10)
+ *     responses:
+ *       200:
+ *         description: Admin users fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 adminUsers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       full_name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       createdAt:
+ *                         type: integer
+ *                       updatedAt:
+ *                         type: integer
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     totalItems:
+ *                       type: integer
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     itemsPerPage:
+ *                       type: integer
+ *                     hasNextPage:
+ *                       type: boolean
+ *                     hasPreviousPage:
+ *                       type: boolean
+ *       500:
+ *         description: Failed to fetch admin users
+ */
+router.get('/admin/admin-users', adminController.getAllAdminUsers);
+
+/**
+ * @swagger
+ * /api/admin/admin-user/{id}:
+ *   put:
+ *     summary: Edit an admin user (only provided fields)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Admin user ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               full_name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Admin user updated successfully
+ *       404:
+ *         description: Admin user not found
+ *       500:
+ *         description: Failed to update admin user
+ */
+router.put('/admin/admin-user/:id', adminController.editAdminUser);
+
+/**
+ * @swagger
+ * /api/admin/admin-user/{id}:
+ *   delete:
+ *     summary: Delete an admin user
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Admin user ID
+ *     responses:
+ *       200:
+ *         description: Admin user deleted successfully
+ *       404:
+ *         description: Admin user not found
+ *       500:
+ *         description: Failed to delete admin user
+ */
+router.delete('/admin/admin-user/:id', adminController.deleteAdminUser);
+
+/**
+ * @swagger
+ * /api/admin/login:
+ *   post:
+ *     summary: Login as an admin user
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Admin login successful
+ *       401:
+ *         description: Invalid email or password
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Failed to login admin user
+ */
+router.post('/admin/login', adminController.loginAdminUser);
+
+/**
+ * @swagger
+ * /api/admin/analytics/user-signups:
+ *   get:
+ *     summary: Get user signup analytics per month for the current year
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User signup analytics fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   month:
+ *                     type: string
+ *                   users:
+ *                     type: integer
+ *       500:
+ *         description: Failed to fetch user signup analytics
+ */
+router.get('/admin/analytics/user-signups', adminController.getUserSignupAnalytics);
+
 module.exports = router;

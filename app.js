@@ -2,7 +2,6 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocs = require('./swagger/swaggerOptions');
 require('dotenv').config();
-const cors = require('cors'); // Add this line
 
 if (!process.env.SECRETKEY) {
   console.error('Error: SECRETKEY is not defined in the environment variables.');
@@ -15,7 +14,6 @@ const PORT = process.env.PORT || 3000;
 const routes = require('./routes');
 
 // Middleware
-app.use(cors()); // Allow all origins
 app.use(express.json());
 
 // Swagger documentation

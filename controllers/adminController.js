@@ -5,6 +5,7 @@ const { Op } = require('sequelize');
 const validator = require('validator');
 const moment = require('moment');
 const s3Util = require('../utils/s3');
+const bcrypt = require('bcrypt');
 
 // Get all users (excluding sensitive data)
 exports.getAllUsers = async (req, res) => {
@@ -353,5 +354,200 @@ exports.getMostVisitedCountries = async (req, res) => {
   } catch (error) {
     console.error('Error in getMostVisitedCountries:', error);
     return apiResponse.InternalServerError(res, 'Failed to fetch most visited countries');
+  }
+};
+
+// Create a new admin user
+exports.createAdminUser = async (req, res) => {
+  try {
+    const { full_name, email, password } = req.body;
+    if (!full_name || !email || !password) {
+      return apiResponse.ValidationError(res, 'full_name, email, and password are required');
+    }
+
+    // Check if admin user already exists
+    const existing = await models.AdminUser.findOne({ where: { email } });
+    if (existing) {
+      return apiResponse.ValidationError(res, 'Admin user with this email already exists');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const adminUser = await models.AdminUser.create({
+      full_name,
+      email,
+      password: hashedPassword
+    });
+
+    // Do not return password in response
+    const { password: _, ...adminUserData } = adminUser.toJSON();
+
+    return apiResponse.SuccessResponseWithData(res, 'Admin user created successfully', adminUserData);
+  } catch (error) {
+    console.error('Error in createAdminUser:', error);
+    return apiResponse.InternalServerError(res, 'Failed to create admin user');
+  }
+};
+
+// Get all admin users
+exports.getAllAdminUsers = async (req, res) => {
+  try {
+    let { page = 1, limit = 10 } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 10;
+    const offset = (page - 1) * limit;
+
+    const { count: totalItems, rows: adminUsers } = await models.AdminUser.findAndCountAll({
+      attributes: { exclude: ['password'] },
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    return apiResponse.SuccessResponseWithData(res, 'Admin users fetched successfully', {
+      adminUsers,
+      pagination: {
+        totalItems,
+        currentPage: page,
+        totalPages: Math.ceil(totalItems / limit),
+        itemsPerPage: limit,
+        hasNextPage: page * limit < totalItems,
+        hasPreviousPage: page > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error in getAllAdminUsers:', error);
+    return apiResponse.InternalServerError(res, 'Failed to fetch admin users');
+  }
+};
+
+// Edit admin user (only provided fields)
+exports.editAdminUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { full_name, email, password } = req.body;
+
+    const adminUser = await models.AdminUser.findByPk(id);
+    if (!adminUser) {
+      return apiResponse.NotFound(res, 'Admin user not found');
+    }
+
+    if (full_name) adminUser.full_name = full_name;
+    if (email) adminUser.email = email;
+    if (password) {
+      const hashedPassword = await require('bcrypt').hash(password, 10);
+      adminUser.password = hashedPassword;
+    }
+
+    await adminUser.save();
+
+    const { password: _, ...adminUserData } = adminUser.toJSON();
+    return apiResponse.SuccessResponseWithData(res, 'Admin user updated successfully', adminUserData);
+  } catch (error) {
+    console.error('Error in editAdminUser:', error);
+    return apiResponse.InternalServerError(res, 'Failed to update admin user');
+  }
+};
+
+// Delete admin user
+exports.deleteAdminUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminUser = await models.AdminUser.findByPk(id);
+    if (!adminUser) {
+      return apiResponse.NotFound(res, 'Admin user not found');
+    }
+    await adminUser.destroy();
+    return apiResponse.SuccessResponseWithOutData(res, 'Admin user deleted successfully');
+  } catch (error) {
+    console.error('Error in deleteAdminUser:', error);
+    return apiResponse.InternalServerError(res, 'Failed to delete admin user');
+  }
+};
+
+// Admin user login
+exports.loginAdminUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return apiResponse.ValidationError(res, 'Email and password are required');
+    }
+
+    const adminUser = await models.AdminUser.findOne({ where: { email } });
+    if (!adminUser) {
+      return apiResponse.UnAuthorized(res, 'Invalid email or password');
+    }
+
+    const isMatch = await bcrypt.compare(password, adminUser.password);
+    if (!isMatch) {
+      return apiResponse.UnAuthorized(res, 'Invalid email or password');
+    }
+
+    // Generate JWT token (reuse user logic if available)
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: adminUser.id, email: adminUser.email, role: 'admin' },
+      process.env.SECRETKEY,
+      { expiresIn: '7d' }
+    );
+
+    // Do not return password
+    const { password: _, ...adminUserData } = adminUser.toJSON();
+
+    return apiResponse.SuccessResponseWithData(res, 'Admin login successful', {
+      token,
+      admin: adminUserData
+    });
+  } catch (error) {
+    console.error('Error in loginAdminUser:', error);
+    return apiResponse.InternalServerError(res, 'Failed to login admin user');
+  }
+};
+
+// Get user signup analytics per month for the current year
+exports.getUserSignupAnalytics = async (req, res) => {
+  try {
+    const { User } = models;
+    const year = new Date().getFullYear();
+
+    // Get all users created this year
+    const users = await User.findAll({
+      attributes: ['createdAt'],
+      where: {
+        createdAt: {
+          [Op.gte]: new Date(`${year}-01-01T00:00:00.000Z`),
+          [Op.lt]: new Date(`${year + 1}-01-01T00:00:00.000Z`)
+        }
+      }
+    });
+
+    // Prepare month map
+    const monthMap = {
+      0: 'Jan', 1: 'Feb', 2: 'Mar', 3: 'Apr', 4: 'May', 5: 'Jun',
+      6: 'Jul', 7: 'Aug', 8: 'Sep', 9: 'Oct', 10: 'Nov', 11: 'Dec'
+    };
+    const analytics = Array.from({ length: 12 }, (_, i) => ({
+      month: monthMap[i],
+      users: 0
+    }));
+
+    // Count users per month
+    users.forEach(u => {
+      let createdAt = u.createdAt;
+      // Support both BIGINT and Date
+      if (typeof createdAt === 'number' || typeof createdAt === 'string') {
+        createdAt = new Date(Number(createdAt));
+      }
+      const month = createdAt.getUTCMonth();
+      if (analytics[month]) analytics[month].users += 1;
+    });
+
+    return apiResponse.SuccessResponseWithData(res, 'User signup analytics fetched successfully', analytics);
+  } catch (error) {
+    console.error('Error in getUserSignupAnalytics:', error);
+    return apiResponse.InternalServerError(res, 'Failed to fetch user signup analytics');
   }
 };
