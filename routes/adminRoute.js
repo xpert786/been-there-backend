@@ -221,22 +221,18 @@ router.get('/admin/platform-stats', verifyToken, adminController.getPlatformStat
 /**
  * @swagger
  * /api/admin/most-visited-countries:
- *   post:
+ *   get:
  *     summary: Get most visited countries with number of unique users who visited them
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               type:
- *                 type: integer
- *                 enum: [1, 2]
- *                 description: 1 = all, 2 = top 5 only
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: integer
+ *           enum: [1, 2]
+ *         description: 1 = all, 2 = top 5 only
  *     responses:
  *       200:
  *         description: Most visited countries fetched successfully
@@ -254,7 +250,7 @@ router.get('/admin/platform-stats', verifyToken, adminController.getPlatformStat
  *       500:
  *         description: Failed to fetch most visited countries
  */
-router.post('/admin/most-visited-countries', adminController.getMostVisitedCountries);
+router.get('/admin/most-visited-countries', adminController.getMostVisitedCountries);
 
 /**
  * @swagger
@@ -450,10 +446,20 @@ router.post('/admin/login', adminController.loginAdminUser);
  * @swagger
  * /api/admin/analytics/user-signups:
  *   get:
- *     summary: Get user signup analytics per month for the current year
+ *     summary: Get user signup analytics per month for the specified year
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               year:
+ *                 type: integer
+ *                 example: 2024
  *     responses:
  *       200:
  *         description: User signup analytics fetched successfully
@@ -468,6 +474,8 @@ router.post('/admin/login', adminController.loginAdminUser);
  *                     type: string
  *                   users:
  *                     type: integer
+ *       400:
+ *         description: Invalid year provided
  *       500:
  *         description: Failed to fetch user signup analytics
  */

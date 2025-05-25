@@ -364,12 +364,12 @@ exports.getPlatformStats = async (req, res) => {
 
 /**
  * Get most visited countries with number of unique users who visited them.
- * Accepts { type: 1 | 2 } in req.body: 1 = all, 2 = top 5 only.
+ * Accepts type as query param: 1 = all, 2 = top 5 only.
  */
 exports.getMostVisitedCountries = async (req, res) => {
   try {
     const { TopDestination } = models;
-    const { type = 1 } = req.body;
+    const { type = 1 } = req.query;
 
     // Find all country visits, group by country, count unique users
     const results = await TopDestination.findAll({
@@ -553,24 +553,29 @@ exports.loginAdminUser = async (req, res) => {
 exports.getUserSignupAnalytics = async (req, res) => {
   try {
     const { User } = models;
-    const year = new Date().getFullYear();
+    const { year } = req.body;
 
-    // Get all users created this year
+    if (!year || isNaN(year)) {
+      return apiResponse.ValidationFailed(res, 'Valid year must be provided in the request body.');
+    }
+
+    // Get all users created in the specified year
     const users = await User.findAll({
       attributes: ['createdAt'],
       where: {
         createdAt: {
-          [Op.gte]: new Date(`${year}-01-01T00:00:00.000Z`),
-          [Op.lt]: new Date(`${year + 1}-01-01T00:00:00.000Z`)
+          [Op.gte]: new Date(`${year}-01-01T00:00:00.000Z`).getTime(),
+          [Op.lt]: new Date(`${parseInt(year) + 1}-01-01T00:00:00.000Z`).getTime()
         }
       }
     });
 
-    // Prepare month map
+    // Month mapping
     const monthMap = {
       0: 'Jan', 1: 'Feb', 2: 'Mar', 3: 'Apr', 4: 'May', 5: 'Jun',
       6: 'Jul', 7: 'Aug', 8: 'Sep', 9: 'Oct', 10: 'Nov', 11: 'Dec'
     };
+
     const analytics = Array.from({ length: 12 }, (_, i) => ({
       month: monthMap[i],
       users: 0
@@ -579,17 +584,27 @@ exports.getUserSignupAnalytics = async (req, res) => {
     // Count users per month
     users.forEach(u => {
       let createdAt = u.createdAt;
-      // Support both BIGINT and Date
-      if (typeof createdAt === 'number' || typeof createdAt === 'string') {
+
+      if (typeof createdAt === 'number' || (typeof createdAt === 'string' && /^\d+$/.test(createdAt))) {
         createdAt = new Date(Number(createdAt));
+      } else {
+        createdAt = new Date(createdAt);
       }
-      const month = createdAt.getUTCMonth();
-      if (analytics[month]) analytics[month].users += 1;
+
+      if (!isNaN(createdAt)) {
+        const month = createdAt.getUTCMonth();
+        if (analytics[month]) analytics[month].users += 1;
+      }
     });
 
-    return apiResponse.SuccessResponseWithData(res, 'User signup analytics fetched successfully', analytics);
+    return apiResponse.SuccessResponseWithData(
+      res,
+      'User signup analytics fetched successfully',
+      analytics
+    );
   } catch (error) {
     console.error('Error in getUserSignupAnalytics:', error);
     return apiResponse.InternalServerError(res, 'Failed to fetch user signup analytics');
   }
 };
+
