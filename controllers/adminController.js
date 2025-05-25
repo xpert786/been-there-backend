@@ -150,29 +150,71 @@ exports.blockUser = async (req, res) => {
   }
 };
 
-// Delete a user
+// Delete a user and all related data
 exports.deleteUser = async (req, res) => {
   const { userId } = req.params;
   
   if (!userId) {
-    return apiResponse.ValidationError(res, 'User ID is required');
+    return res.status(400).json("User ID is required");
   }
 
   try {
     const user = await User.findByPk(userId);
     if (!user) {
-      return apiResponse.NotFound(res, 'User not found');
+      return res.status(404).json("User not found");
     }
 
     if (req.user.id === user.id) {
-      return apiResponse.Forbidden(res, 'You cannot delete your own account');
+      return res.status(403).json("You cannot delete your own account");
     }
 
+    // Delete related data in all tables
+    const { Follower, Post, Wishlist, TopDestination, Comment, Like, Highlight, UserOtp, Photo } = models;
+
+    // Delete followers (where user is either user_id or follower_id)
+    await Follower.destroy({ where: { user_id: userId } });
+    await Follower.destroy({ where: { follower_id: userId } });
+
+    // Delete comments made by user
+    await Comment.destroy({ where: { user_id: userId } });
+
+    // Delete likes made by user
+    await Like.destroy({ where: { user_id: userId } });
+
+    // Delete wishlists by user
+    await Wishlist.destroy({ where: { user_id: userId } });
+
+    // Delete highlights by user
+    if (Highlight) await Highlight.destroy({ where: { user_id: userId } });
+
+    // Delete top destinations by user
+    await TopDestination.destroy({ where: { user_id: userId } });
+
+    // Delete OTPs by user
+    if (UserOtp) await UserOtp.destroy({ where: { user_id: userId } });
+
+    // Delete all posts/photos/comments/likes for posts by this user
+    const posts = await Post.findAll({ where: { user_id: userId } });
+    for (const post of posts) {
+      // Delete comments for this post
+      await Comment.destroy({ where: { post_id: post.id } });
+      // Delete likes for this post
+      await Like.destroy({ where: { post_id: post.id } });
+      // Delete wishlists for this post
+      await Wishlist.destroy({ where: { post_id: post.id } });
+      // Delete photos for this post
+      if (Photo) await Photo.destroy({ where: { post_id: post.id } });
+    }
+    // Delete posts
+    await Post.destroy({ where: { user_id: userId } });
+
+    // Finally, delete the user
     await user.destroy();
-    return apiResponse.SuccessResponseWithOutDataW(res, 'User deleted successfully');
+
+    return apiResponse.SuccessResponseWithOutData(res, 'User and all related data deleted successfully');
   } catch (error) {
     console.error('Error in deleteUser:', error);
-    return apiResponse.InternalServerError(res, 'Failed to delete user');
+    return apiResponse.InternalServerError(res, 'Failed to delete user and related data');
   }
 };
 
