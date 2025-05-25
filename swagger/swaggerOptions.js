@@ -27,7 +27,7 @@ const swaggerOptions = {
       },
 
       {
-        url: process.env.LOCALURL||'http://localhost:4000',
+        url: process.env.LOCALURL||'http://localhost:3000',
         description: 'Local server',
       },
     ],
