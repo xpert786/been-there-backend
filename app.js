@@ -9,7 +9,7 @@ if (!process.env.SECRETKEY) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 
 const routes = require('./routes');
 

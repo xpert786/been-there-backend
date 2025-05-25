@@ -411,38 +411,6 @@ router.delete('/admin/admin-user/:id', verifyToken, adminAuth, adminController.d
 
 /**
  * @swagger
- * /api/admin/login:
- *   post:
- *     summary: Login as an admin user
- *     tags: [Admin]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Admin login successful
- *       401:
- *         description: Invalid email or password
- *       400:
- *         description: Validation error
- *       500:
- *         description: Failed to login admin user
- */
-router.post('/admin/login', adminController.loginAdminUser);
-
-/**
- * @swagger
  * /api/admin/analytics/user-signups:
  *   get:
  *     summary: Get user signup analytics per month for a given year

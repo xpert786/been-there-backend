@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const apiResponse = require('../utils/apiResponse');
 
 const verifyToken = async (req, res, next) => {
+  console.log('Verifying token...');
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return apiResponse.UnAuthorized(res, 'Missing authorization header');
