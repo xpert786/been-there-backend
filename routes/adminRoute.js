@@ -2,10 +2,12 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const verifyToken = require('../middleware/verifyToken');
+const adminAuth = require('../middleware/adminAuth');
 const multer = require('multer');
 const upload = multer();
 
-router.use(verifyToken);
+// router.use(verifyToken);
+router.use(adminAuth);
 
 /**
  * @swagger
@@ -55,7 +57,7 @@ router.use(verifyToken);
  *       500:
  *         description: Internal server error
  */
-router.get('/admin/users', adminController.getAllUsers);
+router.get('/admin/users',verifyToken, adminController.getAllUsers);
 
 /**
  * @swagger
@@ -82,7 +84,7 @@ router.get('/admin/users', adminController.getAllUsers);
  *       500:
  *         description: Internal server error
  */
-router.get('/admin/user/:id', adminController.getUserById);
+router.get('/admin/user/:id',verifyToken, adminController.getUserById);
 
 /**
  * @swagger
@@ -132,7 +134,7 @@ router.get('/admin/user/:id', adminController.getUserById);
  *       500:
  *         description: Internal server error
  */
-router.put('/admin/user/:id', upload.single('image'), adminController.updateUser);
+router.put('/admin/user/:id',verifyToken, upload.single('image'), adminController.updateUser);
 
 
 /**
@@ -162,7 +164,7 @@ router.put('/admin/user/:id', upload.single('image'), adminController.updateUser
  *       500:
  *         description: Internal server error
  */
-router.post('/admin/user/block', adminController.blockUser);
+router.post('/admin/user/block',verifyToken, adminController.blockUser);
 
 /**
  * @swagger
@@ -187,7 +189,7 @@ router.post('/admin/user/block', adminController.blockUser);
  *       500:
  *         description: Internal server error
  */
-router.delete('/admin/user/:userId', adminController.deleteUser);
+router.delete('/admin/user/:userId',verifyToken, adminController.deleteUser);
 
 /**
  * @swagger
@@ -250,7 +252,7 @@ router.get('/admin/platform-stats', verifyToken, adminController.getPlatformStat
  *       500:
  *         description: Failed to fetch most visited countries
  */
-router.get('/admin/most-visited-countries', adminController.getMostVisitedCountries);
+router.get('/admin/most-visited-countries',verifyToken, adminController.getMostVisitedCountries);
 
 /**
  * @swagger
@@ -283,7 +285,7 @@ router.get('/admin/most-visited-countries', adminController.getMostVisitedCountr
  *       500:
  *         description: Failed to create admin user
  */
-router.post('/admin/user', adminController.createAdminUser);
+router.post('/admin/user',verifyToken, adminController.createAdminUser);
 
 /**
  * @swagger
@@ -345,7 +347,7 @@ router.post('/admin/user', adminController.createAdminUser);
  *       500:
  *         description: Failed to fetch admin users
  */
-router.get('/admin/admin-users', adminController.getAllAdminUsers);
+router.get('/admin/admin-users',verifyToken, adminController.getAllAdminUsers);
 
 /**
  * @swagger
@@ -383,7 +385,7 @@ router.get('/admin/admin-users', adminController.getAllAdminUsers);
  *       500:
  *         description: Failed to update admin user
  */
-router.put('/admin/admin-user/:id', adminController.editAdminUser);
+router.put('/admin/admin-user/:id', verifyToken,adminController.editAdminUser);
 
 /**
  * @swagger
@@ -408,7 +410,7 @@ router.put('/admin/admin-user/:id', adminController.editAdminUser);
  *       500:
  *         description: Failed to delete admin user
  */
-router.delete('/admin/admin-user/:id', adminController.deleteAdminUser);
+router.delete('/admin/admin-user/:id',verifyToken, adminController.deleteAdminUser);
 
 /**
  * @swagger
@@ -446,20 +448,18 @@ router.post('/admin/login', adminController.loginAdminUser);
  * @swagger
  * /api/admin/analytics/user-signups:
  *   get:
- *     summary: Get user signup analytics per month for the specified year
+ *     summary: Get user signup analytics per month for a given year
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               year:
- *                 type: integer
- *                 example: 2024
+ *     parameters:
+ *       - in: query
+ *         name: year
+ *         schema:
+ *           type: integer
+ *           example: 2024
+ *         required: true
+ *         description: The year for which to fetch signup data
  *     responses:
  *       200:
  *         description: User signup analytics fetched successfully
@@ -479,6 +479,40 @@ router.post('/admin/login', adminController.loginAdminUser);
  *       500:
  *         description: Failed to fetch user signup analytics
  */
-router.get('/admin/analytics/user-signups', adminController.getUserSignupAnalytics);
+router.get('/admin/analytics/user-signups',verifyToken, adminController.getUserSignupAnalytics);
+
+/**
+ * @swagger
+ * /api/admin/change-password:
+ *   post:
+ *     summary: Change password for the logged-in admin user
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - oldPassword
+ *               - newPassword
+ *             properties:
+ *               oldPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Admin user not found
+ *       500:
+ *         description: Failed to change password
+ */
+router.post('/admin/change-password',verifyToken, adminController.changeAdminPassword);
 
 module.exports = router;

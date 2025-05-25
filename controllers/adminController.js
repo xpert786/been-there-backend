@@ -549,33 +549,66 @@ exports.loginAdminUser = async (req, res) => {
   }
 };
 
+// Change password for admin user
+exports.changeAdminPassword = async (req, res) => {
+  try {
+    const  id  = req.user.id; // assuming JWT middleware sets req.user
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return apiResponse.ValidationError(res, 'Old password and new password are required');
+    }
+
+    const adminUser = await models.AdminUser.findByPk(id);
+    if (!adminUser) {
+      return apiResponse.NotFound(res, 'Admin user not found');
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, adminUser.password);
+    if (!isMatch) {
+      return apiResponse.ValidationError(res, 'Old password is incorrect');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    adminUser.password = hashedPassword;
+    await adminUser.save();
+
+    return apiResponse.SuccessResponseWithOutData(res, 'Password changed successfully');
+  } catch (error) {
+    console.error('Error in changeAdminPassword:', error);
+    return apiResponse.InternalServerError(res, 'Failed to change password');
+  }
+};
+
 // Get user signup analytics per month for the current year
 exports.getUserSignupAnalytics = async (req, res) => {
   try {
     const { User } = models;
-    const { year } = req.body;
+    const year = parseInt(req.query.year, 10); // Extract year from query params
 
     if (!year || isNaN(year)) {
-      return apiResponse.ValidationFailed(res, 'Valid year must be provided in the request body.');
+      return apiResponse.ValidationFailed(res, 'Valid "year" must be provided as a query parameter.');
     }
+
+    const startOfYear = new Date(`${year}-01-01T00:00:00.000Z`).getTime();
+    const startOfNextYear = new Date(`${year + 1}-01-01T00:00:00.000Z`).getTime();
 
     // Get all users created in the specified year
     const users = await User.findAll({
       attributes: ['createdAt'],
       where: {
         createdAt: {
-          [Op.gte]: new Date(`${year}-01-01T00:00:00.000Z`).getTime(),
-          [Op.lt]: new Date(`${parseInt(year) + 1}-01-01T00:00:00.000Z`).getTime()
+          [Op.gte]: startOfYear,
+          [Op.lt]: startOfNextYear
         }
       }
     });
 
-    // Month mapping
+    // Prepare month map
     const monthMap = {
       0: 'Jan', 1: 'Feb', 2: 'Mar', 3: 'Apr', 4: 'May', 5: 'Jun',
       6: 'Jul', 7: 'Aug', 8: 'Sep', 9: 'Oct', 10: 'Nov', 11: 'Dec'
     };
-
     const analytics = Array.from({ length: 12 }, (_, i) => ({
       month: monthMap[i],
       users: 0
@@ -584,7 +617,6 @@ exports.getUserSignupAnalytics = async (req, res) => {
     // Count users per month
     users.forEach(u => {
       let createdAt = u.createdAt;
-
       if (typeof createdAt === 'number' || (typeof createdAt === 'string' && /^\d+$/.test(createdAt))) {
         createdAt = new Date(Number(createdAt));
       } else {
@@ -597,14 +629,11 @@ exports.getUserSignupAnalytics = async (req, res) => {
       }
     });
 
-    return apiResponse.SuccessResponseWithData(
-      res,
-      'User signup analytics fetched successfully',
-      analytics
-    );
+    return apiResponse.SuccessResponseWithData(res, 'User signup analytics fetched successfully', analytics);
   } catch (error) {
     console.error('Error in getUserSignupAnalytics:', error);
     return apiResponse.InternalServerError(res, 'Failed to fetch user signup analytics');
   }
 };
+
 

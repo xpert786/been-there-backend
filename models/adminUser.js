@@ -21,8 +21,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     email: {
       type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
+      allowNull: false
+      // unique: true // Remove this line to avoid duplicate unique keys
     },
     password: {
       type: DataTypes.STRING,
