@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const adminAuthController = require('../controllers/adminAuthController');
 const verifyToken = require('../middleware/verifyToken');
 const adminAuth = require('../middleware/adminAuth');
 const multer = require('multer');
@@ -555,6 +556,6 @@ router.put('/admin/profile', verifyToken, adminAuth, upload.single('image'), adm
  *       500:
  *         description: Failed to create default admin and generate token
  */
-router.post('/admin/create-default-admin', adminController.createDefaultAdminAndGetToken);
+router.post('/admin/create-default-admin', adminAuthController.createDefaultAdminAndGetToken);
 
 module.exports = router;
