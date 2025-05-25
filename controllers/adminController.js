@@ -598,4 +598,41 @@ exports.getUserSignupAnalytics = async (req, res) => {
   }
 };
 
+// Edit admin profile (full_name, email, image)
+exports.editAdminProfile = async (req, res) => {
+  try {
+    const { id } = req.user; // from verifyToken
+    const { full_name, email } = req.body;
+    let updateData = {};
+
+    if (full_name) updateData.full_name = full_name;
+    if (email) updateData.email = email;
+
+    // Handle image upload if present
+    if (req.file && req.file.fieldname === 'image') {
+      // Optionally, delete previous image from S3 if you store S3 URLs
+      const s3Util = require('../utils/s3');
+      const adminUser = await models.AdminUser.findByPk(id);
+      if (adminUser && adminUser.image && adminUser.image.includes('amazonaws.com/')) {
+        const prevKey = adminUser.image.split('.amazonaws.com/')[1];
+        if (prevKey) {
+          try { await s3Util.deleteFromS3(prevKey); } catch (e) {}
+        }
+      }
+      const newImage = await s3Util.uploadToS3(req.file);
+      updateData.image = newImage;
+    }
+
+    const [affectedRows] = await models.AdminUser.update(updateData, { where: { id } });
+    if (!affectedRows) {
+      return apiResponse.NotFound(res, 'Admin user not found');
+    }
+    const updatedAdmin = await models.AdminUser.findByPk(id, { attributes: { exclude: ['password'] } });
+    return apiResponse.SuccessResponseWithData(res, 'Profile updated successfully', updatedAdmin);
+  } catch (error) {
+    console.error('Error in editAdminProfile:', error);
+    return apiResponse.InternalServerError(res, 'Failed to update admin profile');
+  }
+};
+
 

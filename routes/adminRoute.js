@@ -480,4 +480,38 @@ router.get('/admin/analytics/user-signups', verifyToken, adminAuth, adminControl
  */
 router.post('/admin/change-password', verifyToken, adminAuth, adminController.changeAdminPassword);
 
+/**
+ * @swagger
+ * /api/admin/profile:
+ *   put:
+ *     summary: Edit admin profile (full name, email, image)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               full_name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       404:
+ *         description: Admin user not found
+ *       500:
+ *         description: Failed to update admin profile
+ */
+router.put('/admin/profile', verifyToken, adminAuth, upload.single('image'), adminController.editAdminProfile);
+
 module.exports = router;
