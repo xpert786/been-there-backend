@@ -277,3 +277,81 @@ exports.updateUser = async (req, res) => {
     return apiResponse.InternalServerError(res, 'Failed to update user');
   }
 };
+
+/**
+ * Get platform statistics: total users, total posts, top visited country, top visited city
+ */
+exports.getPlatformStats = async (req, res) => {
+  try {
+    const { User, Post, TopDestination } = models;
+
+    // Total users
+    const totalUsers = await User.count();
+
+    // Total posts
+    const totalPosts = await Post.count();
+
+    // Top visited country
+    const topCountry = await TopDestination.findOne({
+      where: { type: 'country' },
+      attributes: ['value'],
+      order: [['count', 'DESC']],
+    });
+    const topVisitedCountry = topCountry ? topCountry.value : null;
+
+    // Top visited city
+    const topCity = await TopDestination.findOne({
+      where: { type: 'city' },
+      attributes: ['value'],
+      order: [['count', 'DESC']],
+    });
+    const topVisitedCity = topCity ? topCity.value : null;
+
+    return apiResponse.SuccessResponseWithData(res, 'Platform stats fetched successfully', {
+      totalUsers,
+      totalPosts,
+      topVisitedCountry,
+      topVisitedCity
+    });
+  } catch (error) {
+    console.error('Error in getPlatformStats:', error);
+    return apiResponse.InternalServerError(res, 'Failed to fetch platform stats');
+  }
+};
+
+/**
+ * Get most visited countries with number of unique users who visited them.
+ * Accepts { type: 1 | 2 } in req.body: 1 = all, 2 = top 5 only.
+ */
+exports.getMostVisitedCountries = async (req, res) => {
+  try {
+    const { TopDestination } = models;
+    const { type = 1 } = req.body;
+
+    // Find all country visits, group by country, count unique users
+    const results = await TopDestination.findAll({
+      where: { type: 'country', visited: true },
+      attributes: [
+        ['value', 'name'],
+        [models.sequelize.fn('COUNT', models.sequelize.fn('DISTINCT', models.sequelize.col('user_id'))), 'value']
+      ],
+      group: ['value'],
+      order: [[models.sequelize.literal('value'), 'DESC']]
+    });
+
+    let data = results.map(r => ({
+      name: r.get('name'),
+      value: parseInt(r.get('value'), 10)
+    }));
+
+    // If type=2, return only top 5
+    if (parseInt(type) === 2) {
+      data = data.slice(0, 5);
+    }
+
+    return apiResponse.SuccessResponseWithData(res, 'Most visited countries fetched successfully', data);
+  } catch (error) {
+    console.error('Error in getMostVisitedCountries:', error);
+    return apiResponse.InternalServerError(res, 'Failed to fetch most visited countries');
+  }
+};

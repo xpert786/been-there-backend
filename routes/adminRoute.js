@@ -189,4 +189,71 @@ router.post('/admin/user/block', adminController.blockUser);
  */
 router.delete('/admin/user/:userId', adminController.deleteUser);
 
+/**
+ * @swagger
+ * /api/admin/platform-stats:
+ *   get:
+ *     summary: Get platform statistics (total users, total posts, top visited country/city)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Platform stats fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalUsers:
+ *                   type: integer
+ *                 totalPosts:
+ *                   type: integer
+ *                 topVisitedCountry:
+ *                   type: string
+ *                 topVisitedCity:
+ *                   type: string
+ *       500:
+ *         description: Failed to fetch platform stats
+ */
+router.get('/admin/platform-stats', verifyToken, adminController.getPlatformStats);
+
+/**
+ * @swagger
+ * /api/admin/most-visited-countries:
+ *   post:
+ *     summary: Get most visited countries with number of unique users who visited them
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type:
+ *                 type: integer
+ *                 enum: [1, 2]
+ *                 description: 1 = all, 2 = top 5 only
+ *     responses:
+ *       200:
+ *         description: Most visited countries fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   value:
+ *                     type: integer
+ *       500:
+ *         description: Failed to fetch most visited countries
+ */
+router.post('/admin/most-visited-countries', adminController.getMostVisitedCountries);
+
 module.exports = router;
