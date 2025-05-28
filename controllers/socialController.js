@@ -6,38 +6,134 @@ const apiResponse = require('../utils/apiResponse');
 const s3Util = require('../utils/s3');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); // temp local storage
+const { firestore, admin } = require('../firebase.config');
 
+
+// Helper function to generate consistent chat IDs
+function getChatId(uid1, uid2) {
+  return [uid1, uid2].sort().join("_");
+}
 exports.followUser = async (req, res) => {
-  const { id: user_id } = req.user;
-  const { target_user_id } = req.body;
+  const { id: userId } = req.user;
+  const { target_user_id: targetUserId } = req.body;
 
   try {
-    if (user_id === target_user_id) {
+    if (!targetUserId) {
+      return apiResponse.ValidationError(res, "Target user ID is required.");
+    }
+    
+    if (userId === targetUserId) {
       return apiResponse.ValidationError(res, "You cannot follow yourself.");
     }
 
-    const existingFollow = await Follower.findOne({
-      where: { user_id: target_user_id, follower_id: user_id },
+    // Fetch target user details
+    const targetUser = await User.findByPk(targetUserId, {
+      attributes: ['id', 'full_name', 'image', 'email']
     });
+    if (!targetUser) {
+      return apiResponse.NotFound(res, "Target user not found.");
+    }
+
+    // Fetch current user details
+    const currentUser = await User.findByPk(userId, {
+      attributes: ['id', 'full_name', 'image', 'email']
+    });
+    if (!currentUser) {
+      return apiResponse.NotFound(res, "Current user not found.");
+    }
+
+    // Check if already following
+    const existingFollow = await Follower.findOne({
+      where: { user_id: targetUserId, follower_id: userId },
+    });
+
+    // Prepare chatId and chatRef
+    const chatId = getChatId(userId, targetUserId);
+    const chatRef = firestore.collection("chats").doc(chatId);
+    let chatDoc = await chatRef.get();
+    let membersInfo;
+
+    if (!chatDoc.exists) {
+      // Only create chat if it doesn't exist
+      await chatRef.set({
+        id: chatId,
+        members: [userId, targetUserId],
+        membersInfo: [
+          {
+            id: currentUser.id,
+            name: currentUser.full_name,
+            image: currentUser.image,
+            email: currentUser.email
+          },
+          {
+            id: targetUser.id,
+            name: targetUser.full_name,
+            image: targetUser.image,
+            email: targetUser.email
+          }
+        ],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      membersInfo = [
+        {
+          id: currentUser.id,
+          name: currentUser.full_name,
+          image: currentUser.image,
+          email: currentUser.email
+        },
+        {
+          id: targetUser.id,
+          name: targetUser.full_name,
+          image: targetUser.image,
+          email: targetUser.email
+        }
+      ];
+    } else {
+      // If chat exists, get membersInfo from Firestore
+      const data = chatDoc.data();
+      membersInfo = data && data.membersInfo ? data.membersInfo : [];
+    }
 
     if (existingFollow) {
       // Unfollow
       await Follower.destroy({
-        where: { user_id: target_user_id, follower_id: user_id },
+        where: { user_id: targetUserId, follower_id: userId },
       });
+
+      // Optional: Delete chat if required
+      // await chatRef.delete();
+
       return apiResponse.SuccessResponseWithData(res, "Successfully unfollowed user", {
         isFollowing: false,
+        chatId,
+        membersInfo,
+        user: {
+          id: targetUser.id,
+          name: targetUser.full_name,
+          image: targetUser.image,
+          email: targetUser.email
+        }
       });
     } else {
       // Follow
-      await Follower.create({ user_id: target_user_id, follower_id: user_id });
+      await Follower.create({ user_id: targetUserId, follower_id: userId });
+
       return apiResponse.SuccessResponseWithData(res, "Successfully followed user", {
         isFollowing: true,
+        chatId,
+        membersInfo,
+        user: {
+          id: targetUser.id,
+          name: targetUser.full_name,
+          image: targetUser.image,
+          email: targetUser.email
+        }
       });
     }
   } catch (error) {
     console.error("Toggle follow error:", error);
-    return apiResponse.InternalServerError(res, error);
+    return apiResponse.InternalServerError(res, error.message || "Something went wrong.");
   }
 };
 
@@ -110,22 +206,22 @@ exports.commentOnPost = async (req, res) => {
   }
 };
 
-// Get all top destinations for the authenticated user (simple, no joins)
+// Get all top destinations for a user (userId from query or path)
 exports.getTopDestinations = async (req, res) => {
-  const user_id = req.user.id;
-  const { filterValue } = req.query; // User passes a value like 'asia', 'india', 'delhi'
+  const user_id = req.query.userId || req.params.userId;
+  const { filterValue } = req.query;
   try {
-    // Use Op.like for MySQL/MariaDB (case-insensitive if collation is set)
+    if (!user_id) {
+      return apiResponse.ValidationError(res, 'userId is required');
+    }
     const whereClause = { user_id };
     if (filterValue) {
       whereClause.value = { [Op.like]: filterValue.toLowerCase() };
     }
-
     const topDestinations = await TopDestination.findAll({
       where: whereClause,
       order: [['count', 'DESC']]
     });
-
     const result = [];
     for (const dest of topDestinations) {
       let postWhere = {
@@ -143,7 +239,6 @@ exports.getTopDestinations = async (req, res) => {
         ],
         order: [['createdAt', 'DESC']]
       });
-
       result.push({
         destinationId: dest.id,
         type: dest.type,
@@ -153,7 +248,6 @@ exports.getTopDestinations = async (req, res) => {
         posts
       });
     }
-
     return apiResponse.SuccessResponseWithData(res, 'Top destinations fetched successfully', result);
   } catch (error) {
     console.error('Error in getTopDestinations:', error);
@@ -161,12 +255,13 @@ exports.getTopDestinations = async (req, res) => {
   }
 };
 
-
-// Get all wishlist items for the authenticated user (simple, no joins)
+// Get all wishlist items for a user (userId from query or path)
 exports.getAllWishlist = async (req, res) => {
   try {
-    const user_id = req.user.id;
-    // Include the related post details for each wishlist item
+    const user_id = req.query.userId || req.params.userId;
+    if (!user_id) {
+      return apiResponse.ValidationError(res, 'userId is required');
+    }
     const wishlist = await Wishlist.findAll({
       where: { user_id },
       include: [
@@ -179,7 +274,6 @@ exports.getAllWishlist = async (req, res) => {
         }
       ]
     });
-    // Format: each wishlist item includes its post details
     return apiResponse.SuccessResponseWithData(res, 'Wishlist fetched successfully', wishlist);
   } catch (error) {
     console.error('Error in getAllWishlist:', error);
@@ -267,6 +361,24 @@ exports.deleteImage = async (req, res) => {
     return apiResponse.SuccessResponseWithOutData(res, 'Image deleted successfully');
   } catch (error) {
     console.error('Error deleting image:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+// Check if a user has enabled message requests
+exports.checkMessageRequestEnabled = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const user = await User.findByPk(userId, { attributes: ['id', 'message_request'] });
+    if (!user) {
+      return apiResponse.NotFound(res, 'User not found');
+    }
+    // If the field is undefined/null, treat as false
+    return apiResponse.SuccessResponseWithData(res, 'Message request status retrieved', {
+      messageRequestEnabled: !!user.message_request_enabled
+    });
+  } catch (error) {
+    console.error(error);
     return apiResponse.InternalServerError(res, error);
   }
 };

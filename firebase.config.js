@@ -1,9 +1,15 @@
-const firebaseConfig = {
-  apiKey: "AIzaSyBS83Yi2RBuRyRc_t2qey1bNMhG6fxxc1A",
-  authDomain: "travel-around-ec840.firebaseapp.com",
-  projectId: "travel-around-ec840",
-  storageBucket: "travel-around-ec840.firebasestorage.app",
-  messagingSenderId: "1050919447778",
-  appId: "1:1050919447778:web:6877fad7ad95af6a0182bb",
-  measurementId: "G-M5553SVR6V"
-};
+const admin = require("firebase-admin");
+const path = require("path");
+
+const serviceAccount = require(path.resolve(__dirname, "./service-account.json"));
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: "https://travel-around-ec840.firebaseio.com",
+  });
+}
+
+const firestore = admin.firestore();
+
+module.exports = { admin, firestore };

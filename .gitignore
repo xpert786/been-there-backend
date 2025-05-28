@@ -30,3 +30,5 @@ build/
 
 # Coverage reports
 coverage/
+
+service-account.json

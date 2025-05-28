@@ -102,11 +102,17 @@ router.post('/post/comment/:postId', socialController.commentOnPost);
  * @swagger
  * /topdestinations/all:
  *   get:
- *     summary: Get all top destinations for the authenticated user (filter by value)
+ *     summary: Get all top destinations for a user (by userId)
  *     tags: [Social]
  *     security:
  *       - bearerAuth: []
  *     parameters:
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the user whose top destinations to fetch
  *       - in: query
  *         name: filterType
  *         schema:
@@ -123,6 +129,8 @@ router.post('/post/comment/:postId', socialController.commentOnPost);
  *     responses:
  *       200:
  *         description: Top destinations fetched successfully
+ *       400:
+ *         description: Validation error
  *       500:
  *         description: Internal server error
  */
@@ -132,13 +140,22 @@ router.get('/topdestinations/all', socialController.getTopDestinations);
  * @swagger
  * /wishlist/all:
  *   get:
- *     summary: Get all wishlist items for the authenticated user (raw table)
+ *     summary: Get all wishlist items for a user (by userId)
  *     tags: [Social]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the user whose wishlist to fetch
  *     responses:
  *       200:
  *         description: Wishlist fetched successfully
+ *       400:
+ *         description: Validation error
  *       500:
  *         description: Internal server error
  */
@@ -201,5 +218,35 @@ router.post('/image/upload', socialController.uploadImage);
  *         description: Internal server error
  */
 router.delete('/image/delete', socialController.deleteImage);
+
+/**
+ * @swagger
+ * /user/message-request/{userId}:
+ *   get:
+ *     summary: Check if a user has enabled message requests
+ *     tags: [User]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the user to check
+ *     responses:
+ *       200:
+ *         description: Message request status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 messageRequestEnabled:
+ *                   type: boolean
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/user/message-request/:userId', socialController.checkMessageRequestEnabled);
 
 module.exports = router;

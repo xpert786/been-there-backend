@@ -181,4 +181,52 @@ router.get('/post/userDetails/:userId', verifyToken, postController.getUserDetai
  */
 router.post('/post/wishlist', verifyToken, postController.wishlistPost);
 
+/**
+ * @swagger
+ * /posts/user/{userId}:
+ *   get:
+ *     summary: Get all posts for a specific user
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the user whose posts to fetch
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination (default 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of posts per page (default 10)
+ *     responses:
+ *       200:
+ *         description: User posts retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 posts:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Post'
+ *                 totalCount:
+ *                   type: integer
+ *                 currentPage:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/posts/user/:userId', verifyToken, postController.getUserPosts);
+
 module.exports = router;

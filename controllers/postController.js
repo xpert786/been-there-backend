@@ -113,7 +113,6 @@ exports.createPost = async (req, res) => {
   }
 };
 
-
 exports.getPosts = async (req, res) => {
   const { type, page = 1, limit = 10 } = req.query;
 
@@ -167,8 +166,22 @@ exports.getPosts = async (req, res) => {
       return apiResponse.ValidationError(res, 'Invalid type parameter');
     }
 
+    // Add isLiked field for each post
+    const postIds = posts.map(post => post.id);
+    const likes = await models.Like.findAll({
+      where: { user_id, post_id: { [Op.in]: postIds } },
+      attributes: ['post_id']
+    });
+    const likedPostIds = new Set(likes.map(like => like.post_id));
+
+    const postsWithIsLiked = posts.map(post => {
+      const postObj = post.toJSON();
+      postObj.isLiked = likedPostIds.has(post.id);
+      return postObj;
+    });
+
     return apiResponse.SuccessResponseWithData(res, 'Posts retrieved successfully', {
-      posts,
+      posts: postsWithIsLiked,
       totalCount,
       currentPage: parseInt(page),
       totalPages: Math.ceil(totalCount / limit),
@@ -184,6 +197,7 @@ exports.getPostDetail = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
 
   try {
+    const user_id = req.user.id;
     const post = await Post.findOne({
       where: { id: postId },
       include: [
@@ -196,12 +210,19 @@ exports.getPostDetail = async (req, res) => {
           attributes: ['id', 'image_url'],
         },
       ],
-      attributes: { exclude: ['like_count', 'comment_count'] }, // Exclude duplicate columns
     });
 
     if (!post) {
       return apiResponse.NotFound(res, 'Post not found');
     }
+
+    // Check if current user has liked this post
+    const like = await models.Like.findOne({ where: { user_id, post_id: postId } });
+    const isLiked = !!like;
+
+    // Check if current user has wishlisted this post
+    const wishlist = await Wishlist.findOne({ where: { user_id, post_id: postId } });
+    const isWishlisted = !!wishlist;
 
     const totalComments = await Comment.count({ where: { post_id: postId } }); // Count total comments
     const comments = await Comment.findAll({
@@ -216,8 +237,13 @@ exports.getPostDetail = async (req, res) => {
       offset: (page - 1) * limit,
     });
 
+    // Add isLiked and isWishlisted to post object
+    const postObj = post.toJSON();
+    postObj.isLiked = isLiked;
+    postObj.isWishlisted = isWishlisted;
+
     return apiResponse.SuccessResponseWithData(res, 'Post details retrieved successfully', {
-      post,
+      post: postObj,
       comments,
       totalComments,
       currentPage: parseInt(page),
@@ -246,6 +272,11 @@ exports.getUserDetails = async (req, res) => {
 
     if (!user) {
       return apiResponse.NotFound(res, "User not found");
+    }
+
+    // Check for public profile sharing
+    if (user.public_profile === false) {
+      return apiResponse.ValidationError(res, "User profile is private");
     }
 
     const totalPosts = await Post.count({ where: { user_id: userId } });
@@ -295,7 +326,9 @@ exports.wishlistPost = async (req, res) => {
       where: { user_id, post_id }
     });
     if (existing) {
-      return apiResponse.ValidationError(res, 'Post already in wishlist');
+      // If already wishlisted, remove it (toggle off)
+      await existing.destroy();
+      return apiResponse.SuccessResponseWithOutData(res, 'Post removed from wishlist');
     }
 
     // Store city and country in destination
@@ -304,6 +337,42 @@ exports.wishlistPost = async (req, res) => {
     await Wishlist.create({ user_id, post_id, destination });
 
     return apiResponse.SuccessResponseWithOutData(res, 'Post wishlisted successfully');
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+// Get all posts for a specific user by userId
+exports.getUserPosts = async (req, res) => {
+  const { userId } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+
+  try {
+    // Check if user exists
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return apiResponse.NotFound(res, "User not found");
+    }
+
+    const totalCount = await Post.count({ where: { user_id: userId } });
+    const posts = await Post.findAll({
+      where: { user_id: userId },
+      include: [
+        { model: Photo, attributes: ['id', 'image_url'] },
+        { model: User, attributes: ['id', 'full_name', 'email', 'image'] }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit),
+      offset: (page - 1) * limit,
+    });
+
+    return apiResponse.SuccessResponseWithData(res, 'User posts retrieved successfully', {
+      posts,
+      totalCount,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalCount / limit),
+    });
   } catch (error) {
     console.error(error);
     return apiResponse.InternalServerError(res, error);
