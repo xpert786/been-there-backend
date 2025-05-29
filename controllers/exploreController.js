@@ -166,7 +166,7 @@ const exploreController = {
                 posts: processedPosts,
                 locationPhotos: locationPhotos.map(photo => ({
                     id: photo.id,
-                    url: photo.url,
+                    url: photo.image_url,
                     postId: photo.PostId
                 }))
             });
