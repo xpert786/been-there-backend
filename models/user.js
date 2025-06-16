@@ -84,6 +84,22 @@ module.exports = (sequelize, DataTypes) => {
     updatedAt: {
       type: DataTypes.BIGINT,
       defaultValue: moment().valueOf()
+    },
+    instagram_access_token: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    instagram_token_expires_in: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
+    instagram_user_id: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    instagram_token_last_refreshed: {
+      type: DataTypes.BIGINT,
+      allowNull: true
     }
   }, {
     sequelize,
