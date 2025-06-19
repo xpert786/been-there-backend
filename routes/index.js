@@ -8,6 +8,7 @@ const exploreRoute = require('./exploreRoute');
 const passportRoute = require('./passportRoute');
 const adminAuthRoute = require('./adminAuthRoute');
 const instagramRoute = require('./instaRoute');
+const notificationRoute = require('./notificationRoute');
 
 // Use auth routes
 router.use('/auth', authRoute);
@@ -18,5 +19,6 @@ router.use(socialRoute);
 router.use('/explore', exploreRoute);
 router.use('/passport', passportRoute);
 router.use('/instagram', instagramRoute);
+router.use( notificationRoute);
 
 module.exports = router;
