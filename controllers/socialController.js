@@ -7,12 +7,9 @@ const s3Util = require('../utils/s3');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); // temp local storage
 const { firestore, admin } = require('../firebase.config');
+const { sendNotification } = require('../utils/notification'); // Add this import
 
 
-// Helper function to generate consistent chat IDs
-function getChatId(uid1, uid2) {
-  return [uid1, uid2].sort().join("_");
-}
 exports.followUser = async (req, res) => {
   const { id: userId } = req.user;
   const { target_user_id: targetUserId } = req.body;
@@ -28,7 +25,7 @@ exports.followUser = async (req, res) => {
 
     // Fetch target user details
     const targetUser = await User.findByPk(targetUserId, {
-      attributes: ['id', 'full_name', 'image', 'email']
+      attributes: ['id', 'full_name', 'image', 'email', 'notification_type']
     });
     if (!targetUser) {
       return apiResponse.NotFound(res, "Target user not found.");
@@ -47,67 +44,14 @@ exports.followUser = async (req, res) => {
       where: { user_id: targetUserId, follower_id: userId },
     });
 
-    // Prepare chatId and chatRef
-    const chatId = getChatId(userId, targetUserId);
-    const chatRef = firestore.collection("chats").doc(chatId);
-    let chatDoc = await chatRef.get();
-    let membersInfo;
-
-    if (!chatDoc.exists) {
-      // Only create chat if it doesn't exist
-      await chatRef.set({
-        id: chatId,
-        members: [userId, targetUserId],
-        membersInfo: [
-          {
-            id: currentUser.id,
-            name: currentUser.full_name,
-            image: currentUser.image,
-            email: currentUser.email
-          },
-          {
-            id: targetUser.id,
-            name: targetUser.full_name,
-            image: targetUser.image,
-            email: targetUser.email
-          }
-        ],
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      membersInfo = [
-        {
-          id: currentUser.id,
-          name: currentUser.full_name,
-          image: currentUser.image,
-          email: currentUser.email
-        },
-        {
-          id: targetUser.id,
-          name: targetUser.full_name,
-          image: targetUser.image,
-          email: targetUser.email
-        }
-      ];
-    } else {
-      // If chat exists, get membersInfo from Firestore
-      const data = chatDoc.data();
-      membersInfo = data && data.membersInfo ? data.membersInfo : [];
-    }
-
     if (existingFollow) {
       // Unfollow
       await Follower.destroy({
         where: { user_id: targetUserId, follower_id: userId },
       });
 
-      // Optional: Delete chat if required
-      // await chatRef.delete();
-
       return apiResponse.SuccessResponseWithData(res, "Successfully unfollowed user", {
         isFollowing: false,
-        chatId,
-        membersInfo,
         user: {
           id: targetUser.id,
           name: targetUser.full_name,
@@ -119,10 +63,58 @@ exports.followUser = async (req, res) => {
       // Follow
       await Follower.create({ user_id: targetUserId, follower_id: userId });
 
+      // --- Notification logic for follow ---
+      // Notification type 4: follow
+      const notificationTypes = targetUser.notification_type
+        ? targetUser.notification_type.toString().split(',').map(Number)
+        : [];
+      if (notificationTypes.includes(4)) {
+        const message = `${currentUser.full_name || 'Someone'} started following you.`;
+        // Store notification in DB
+        const notification = await models.Notification.create({
+          user_id: targetUser.id,
+          notification_type: 4,
+          message,
+          reference_id: userId, // reference to the follower
+          is_read: false,
+          sender_id: userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        // Send push notification
+        const fcmTokens = await models.FcmToken.findAll({
+          where: { user_id: targetUser.id }
+        });
+        if (fcmTokens.length > 0) {
+          const tokens = fcmTokens.map(t => t.token).filter(Boolean);
+          try {
+            await sendNotification({
+              token: tokens,
+              notification: {
+                title: 'New Follower',
+                body: message,
+                ...(currentUser.image && { imageUrl: currentUser.image })
+              },
+              data: {
+                type: '4',
+                follower_id: userId.toString(),
+                notification_id: notification.id.toString(),
+                sender_id: userId.toString(),
+                timestamp: Date.now().toString(),
+                click_action: 'FLUTTER_NOTIFICATION_CLICK'
+              }
+            });
+          } catch (err) {
+            console.error('Notification send error:', err);
+            await handleFailedNotifications(err, tokens, targetUser.id);
+          }
+        }
+      }
+      // --- End notification logic ---
+
       return apiResponse.SuccessResponseWithData(res, "Successfully followed user", {
         isFollowing: true,
-        chatId,
-        membersInfo,
         user: {
           id: targetUser.id,
           name: targetUser.full_name,
@@ -142,9 +134,29 @@ exports.likePost = async (req, res) => {
   const { post_id } = req.body;
 
   try {
-    const post = await Post.findByPk(post_id);
+    console.log('likePost called by user:', user_id, 'for post:', post_id);
+
+    // Fetch post with owner (User) information
+    const post = await Post.findByPk(post_id, {
+      include: [{
+        model: User,
+        attributes: ['id', 'full_name', 'notification_type']
+      }]
+    });
+
     if (!post) {
+      console.log('Post not found:', post_id);
       return apiResponse.NotFound(res, "Post not found.");
+    }
+
+    const postOwner = post.User;
+    console.log('Post owner:', postOwner ? postOwner.id : null);
+
+    if (!postOwner) {
+      console.error('Post owner not found');
+      return apiResponse.SuccessResponseWithData(res, "Successfully liked post", {
+        isLiked: true,
+      });
     }
 
     const existingLike = await models.Like.findOne({
@@ -152,7 +164,7 @@ exports.likePost = async (req, res) => {
     });
 
     if (existingLike) {
-      // Unlike
+      console.log('User already liked post, unliking...');
       await models.Like.destroy({
         where: { user_id, post_id },
       });
@@ -165,12 +177,79 @@ exports.likePost = async (req, res) => {
         isLiked: false,
       });
     } else {
-      // Like
+      console.log('User is liking the post...');
       await models.Like.create({ user_id, post_id });
+      await Post.increment("like_count", { where: { id: post_id } });
 
-      await Post.increment("like_count", {
-        where: { id: post_id },
-      });
+      // --- Notification logic ---
+      if (user_id !== postOwner.id) {
+        const liker = await User.findByPk(user_id, {
+          attributes: ['id', 'full_name', 'image']
+        });
+        console.log('Liker:', liker ? liker.full_name : null);
+
+        const notificationTypes = postOwner.notification_type 
+          ? postOwner.notification_type.toString().split(',').map(Number)
+          : [];
+        console.log('Post owner notification types:', notificationTypes);
+
+        if (notificationTypes.includes(3)) {
+          const message = `${liker.full_name || 'Someone'} liked your post.`;
+          console.log('Creating notification in DB with message:', message);
+
+          const notification = await models.Notification.create({
+            user_id: postOwner.id,
+            notification_type: 3,
+            message,
+            reference_id: post_id,
+            is_read: false,
+            sender_id: user_id,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          console.log('Notification DB entry created:', notification);
+
+          // Send push notification
+          const fcmTokens = await models.FcmToken.findAll({
+            where: { 
+              user_id: postOwner.id
+            }
+          });
+          console.log('FCM tokens for post owner:', fcmTokens.map(t => t.token));
+
+          if (fcmTokens.length > 0) {
+            const tokens = fcmTokens.map(t => t.token).filter(Boolean);
+            try {
+              const sendResult = await sendNotification({
+                token: tokens,
+                notification: {
+                  title: 'New Like',
+                  body: message,
+                  ...(liker.image && { imageUrl: liker.image })
+                },
+                data: {
+                  type: '3',
+                  post_id: post_id.toString(),
+                  notification_id: notification.id.toString(),
+                  sender_id: user_id.toString(),
+                  timestamp: Date.now().toString(),
+                  click_action: 'FLUTTER_NOTIFICATION_CLICK'
+                }
+              });
+              console.log('Notification send result:', sendResult);
+            } catch (err) {
+              console.error('Notification send error:', err);
+              await handleFailedNotifications(err, tokens, postOwner.id);
+            }
+          } else {
+            console.log('No valid FCM tokens found for post owner.');
+          }
+        } else {
+          console.log('Post owner does not want like/comment notifications.');
+        }
+      } else {
+        console.log('User liked their own post, no notification sent.');
+      }
 
       return apiResponse.SuccessResponseWithData(res, "Successfully liked post", {
         isLiked: true,
@@ -189,15 +268,80 @@ exports.commentOnPost = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const post = await Post.findByPk(postId);
+    // Fetch post with owner (User) information
+    const post = await Post.findByPk(postId, {
+      include: [{
+        model: User,
+        attributes: ['id', 'full_name', 'notification_type']
+      }]
+    });
     if (!post) {
       return apiResponse.NotFound(res, "Post not found.");
     }
+
+    // Access the user through the automatically generated association
+    const postOwner = post.User;
 
     await Comment.create({ post_id: postId, user_id: userId, comment });
 
     post.comment_count += 1;
     await post.save();
+
+    // --- Notification logic ---
+    if (postOwner && userId !== postOwner.id) {
+      const commenter = await User.findByPk(userId, {
+        attributes: ['id', 'full_name', 'image']
+      });
+
+      const notificationTypes = postOwner.notification_type
+        ? postOwner.notification_type.toString().split(',').map(Number)
+        : [];
+      // 3: like and comment
+      if (notificationTypes.includes(3)) {
+        const message = `${commenter.full_name || 'Someone'} commented on your post.`;
+
+        // Store notification in DB
+        const notification = await models.Notification.create({
+          user_id: postOwner.id,
+          notification_type: 3,
+          message,
+          reference_id: postId,
+          is_read: false,
+          sender_id: userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        // Send push notification
+        const fcmTokens = await models.FcmToken.findAll({
+          where: { user_id: postOwner.id }
+        });
+        if (fcmTokens.length > 0) {
+          const tokens = fcmTokens.map(t => t.token).filter(Boolean);
+          try {
+            await sendNotification({
+              token: tokens,
+              notification: {
+                title: 'New Comment',
+                body: message,
+                ...(commenter.image && { imageUrl: commenter.image })
+              },
+              data: {
+                type: '3',
+                post_id: postId.toString(),
+                notification_id: notification.id.toString(),
+                sender_id: userId.toString(),
+                timestamp: Date.now().toString(),
+                click_action: 'FLUTTER_NOTIFICATION_CLICK'
+              }
+            });
+          } catch (err) {
+            console.error('Notification send error:', err);
+            await handleFailedNotifications(err, tokens, postOwner.id);
+          }
+        }
+      }
+    }
 
     return apiResponse.SuccessResponseWithOutData(res, "Comment added successfully.");
   } catch (error) {
@@ -382,6 +526,33 @@ exports.checkMessageRequestEnabled = async (req, res) => {
     return apiResponse.InternalServerError(res, error);
   }
 };
+
+// Helper function to handle failed notifications
+async function handleFailedNotifications(error, tokens, user_id) {
+  console.log('Handling failed notifications:', error, tokens, user_id);
+  // Example: Mark tokens as invalid if Firebase returns invalid/expired token errors
+  const invalidTokenErrors = [
+    'messaging/invalid-registration-token',
+    'messaging/registration-token-not-registered'
+  ];
+  if (error.code && invalidTokenErrors.includes(error.code)) {
+    // If error.details is available and is an array, extract tokens from it
+    const invalidTokens = Array.isArray(error.details)
+      ? error.details.map(d => d.token)
+      : tokens;
+
+    await models.FcmToken.update(
+      { is_valid: false },
+      {
+        where: {
+          user_id,
+          token: invalidTokens
+        }
+      }
+    );
+    console.log(`Marked ${invalidTokens.length} invalid FCM tokens`);
+  }
+}
 
 
 

@@ -1,15 +1,14 @@
 'use strict';
 const { Model } = require('sequelize');
-const moment = require('moment'); // Import moment
+const moment = require('moment');
 
 module.exports = (sequelize, DataTypes) => {
-  class Notification extends Model {
+  class FcmToken extends Model {
     static associate(models) {
-      Notification.belongsTo(models.User, { foreignKey: 'user_id' });
-
+      FcmToken.belongsTo(models.User, { foreignKey: 'user_id' });
     }
   }
-  Notification.init({
+  FcmToken.init({
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
@@ -19,14 +18,13 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: false
     },
-    notification_type: {
-        type: DataTypes.INTEGER, // Change to INTEGER for type consistency
-        allowNull: false,
-      comment:"1:new follower,2:message,3:like and comment,4:email"
-    },
-    message: {
+    token: {
       type: DataTypes.STRING,
       allowNull: false
+    },
+    device_type: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
     createdAt: {
       type: DataTypes.BIGINT,
@@ -38,8 +36,8 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     sequelize,
-    modelName: 'Notification',
-    timestamps: false
+    modelName: 'FcmToken',
+    tableName: 'FcmTokens'
   });
-  return Notification;
+  return FcmToken;
 };
