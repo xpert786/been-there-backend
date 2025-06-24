@@ -47,8 +47,82 @@ const instagramController = require('../controllers/instagramController');
  *       500:
  *         description: Internal server error
  */
+/**
+ * @swagger
+ * /instagram/posts/{postId}:
+ *   get:
+ *     summary: Get details for a specific Instagram post by postId
+ *     tags: [Instagram]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Instagram post ID
+ *     responses:
+ *       200:
+ *         description: Instagram post details fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     caption:
+ *                       type: string
+ *                     media_type:
+ *                       type: string
+ *                     media_url:
+ *                       type: string
+ *                     thumbnail_url:
+ *                       type: string
+ *                     timestamp:
+ *                       type: string
+ *                     location:
+ *                       type: object
+ *                     permalink:
+ *                       type: string
+ *                     children:
+ *                       type: object
+ *       400:
+ *         description: User not authenticated, Instagram not linked, or Post ID is required
+ *       500:
+ *         description: Internal server error
+ */
+/**
+ * @swagger
+ * /instagram/auth:
+ *   get:
+ *     summary: Empty Instagram auth endpoint (returns success)
+ *     tags: [Instagram]
+ *     responses:
+ *       200:
+ *         description: Success response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ */
 router.post('/sync', instagramController.syncInstagram);
 router.get('/posts', instagramController.getInstagramPosts);
+router.get('/posts/:postId', instagramController.getInstagramPostDetails);
+router.get('/auth', instagramController.instagramAuth);
 
 
 module.exports = router;
