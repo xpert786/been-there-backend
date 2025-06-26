@@ -7,6 +7,7 @@ module.exports = (sequelize, DataTypes) => {
       Post.belongsTo(models.User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
       Post.hasMany(models.Photo, { foreignKey: 'post_id', onDelete: 'CASCADE' });
       Post.hasMany(models.Wishlist, { foreignKey: 'post_id', onUpdate: 'CASCADE', onDelete: 'CASCADE' });
+      Post.hasMany(models.Like, { foreignKey: 'post_id', onDelete: 'CASCADE' });
     }
   }
   Post.init({

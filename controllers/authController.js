@@ -107,8 +107,10 @@ exports.getProfile = async (req, res) => {
       attributes: { exclude: ['password'] },
       include: [
         { model: Wishlist, attributes: ['id', 'destination'] },
-        // Only select fields that actually exist in TopDestination table
-        { model: TopDestination, attributes: ['id', 'type', 'value', 'count', 'visited', 'createdAt', 'updatedAt'] },
+        { 
+          model: TopDestination, 
+          attributes: ['id', 'type', 'value', 'count', 'visited', 'createdAt', 'updatedAt'] 
+        },
         { model: Highlight, attributes: ['id', 'type', 'value'] },
       ],
     });
@@ -117,7 +119,7 @@ exports.getProfile = async (req, res) => {
       return apiResponse.NotFound(res, 'User not found');
     }
 
-    // Fetch wishlist with post details (like getAllWishlist)
+    // Fetch wishlist with post details
     const wishlist = await Wishlist.findAll({
       where: { user_id: userId },
       include: [
@@ -134,25 +136,66 @@ exports.getProfile = async (req, res) => {
     // Calculate "Compare to Others" data
     const compareStats = await getComparisonPercentages(userId);
 
-    // Fetch additional counts
-    const totalPosts = await Post.count({ where: { user_id: userId } });
-    const totalFollowers = await Follower.count({ where: { user_id: userId } });
-    const totalFollowing = await Follower.count({ where: { follower_id: userId } });
+    // Fetch additional counts in parallel for better performance
+    const [totalPosts, totalFollowers, totalFollowing] = await Promise.all([
+      Post.count({ where: { user_id: userId } }),
+      Follower.count({ where: { user_id: userId } }),
+      Follower.count({ where: { follower_id: userId } })
+    ]);
 
-    return apiResponse.SuccessResponseWithData(res, 'Profile retrieved successfully', {
+    // Number of reviews is equal to total posts
+    const numberOfReviews = totalPosts;
+
+    // Calculate compareFromOthers - percentage of users with fewer posts than this user
+    let compareFromOthers = 0;
+    if (totalPosts > 0) {
+      // Get post counts for all users
+      const allUsersPostCounts = await models.Post.findAll({
+        attributes: [
+          'user_id',
+          [models.sequelize.fn('COUNT', models.sequelize.col('id')), 'postCount']
+        ],
+        group: ['user_id'],
+        raw: true
+      });
+
+      // Extract post counts and filter out current user
+      const otherUsersPostCounts = allUsersPostCounts
+        .filter(u => u.user_id !== userId)
+        .map(u => parseInt(u.postCount) || 0);
+
+      // Count how many users have fewer posts than this user
+      const usersWithFewerPosts = otherUsersPostCounts.filter(count => count < totalPosts).length;
+      const totalUsersCompared = otherUsersPostCounts.length;
+
+      // Calculate percentage (avoid division by zero)
+      compareFromOthers = totalUsersCompared > 0 ?
+        Math.round((usersWithFewerPosts / totalUsersCompared) * 100) : 0;
+    }
+
+    // Construct the response data
+    const responseData = {
       user,
-      wishlist, // include detailed wishlist with post info
+      wishlist,
       stats: {
         totalPosts,
         totalFollowers,
         totalFollowing,
-        compareStats
-      },
-    });
+        compareStats,
+        numberOfReviews,
+        compareFromOthers,
+        // Additional debug info
+        debug: {
+          totalUsersCompared: compareFromOthers === 0 ? 0 : undefined // Shows how many users were compared
+        }
+      }
+    };
+
+    return apiResponse.SuccessResponseWithData(res, 'Profile retrieved successfully', responseData);
   } catch (error) {
-    console.error(error);
+    console.error('Error in getProfile:', error);
     return apiResponse.InternalServerError(res, error);
-  }
+  } 
 };
 
 exports.editProfile = async (req, res) => {

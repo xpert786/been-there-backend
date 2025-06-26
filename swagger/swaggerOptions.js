@@ -22,7 +22,7 @@ const swaggerOptions = {
     security: [{ bearerAuth: [] }],
     servers: [
       {
-        url: process.env.BASEURL || 'http://ec2-54-215-125-69.us-west-1.compute.amazonaws.com',
+        url: process.env.BASEURL || 'https://api.beenaround.app',
         description: 'Production server',
       },
 
