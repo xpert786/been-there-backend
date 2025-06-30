@@ -16,6 +16,7 @@ const crypto = require('crypto'); // For generating secure tokens
 const s3Util = require('../utils/s3');
 const { sendEmail } = require('../utils/email'); // Adjust path as needed
 const { getComparisonPercentages } = require('../utils/highlightComparison');
+const FcmToken = models.FcmToken;
 
 exports.register = async (req, res) => {
   const errors = validationResult(req);
@@ -567,5 +568,52 @@ exports.deleteAccount = async (req, res) => {
   } catch (error) {
     console.error('Error in deleteAccount:', error);
     return apiResponse.InternalServerError(res, 'Failed to delete account');
+  }
+};
+
+exports.saveFcmToken = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { token, device_type } = req.body;
+
+    if (!token) {
+      return apiResponse.ValidationError(res, 'FCM token is required');
+    }
+
+    // Upsert: If token exists for this user, update; else, create
+    let fcmToken = await FcmToken.findOne({ where: { user_id: userId, token } });
+    if (fcmToken) {
+      if (device_type !== undefined) fcmToken.device_type = device_type;
+      await fcmToken.save();
+    } else {
+      fcmToken = await FcmToken.create({ user_id: userId, token, device_type });
+    }
+
+    return apiResponse.SuccessResponseWithData(res, 'FCM token saved successfully', fcmToken);
+  } catch (error) {
+    console.error('Error in saveFcmToken:', error);
+    return apiResponse.InternalServerError(res, 'Failed to save FCM token');
+  }
+};
+
+exports.deleteFcmToken = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { token } = req.body;
+
+    if (!token) {
+      return apiResponse.ValidationError(res, 'FCM token is required');
+    }
+
+    const deleted = await FcmToken.destroy({ where: { user_id: userId, token } });
+
+    if (deleted) {
+      return apiResponse.SuccessResponseWithOutData(res, 'FCM token deleted successfully');
+    } else {
+      return apiResponse.NotFound(res, 'FCM token not found');
+    }
+  } catch (error) {
+    console.error('Error in deleteFcmToken:', error);
+    return apiResponse.InternalServerError(res, 'Failed to delete FCM token');
   }
 };
