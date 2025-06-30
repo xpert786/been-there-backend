@@ -370,4 +370,65 @@ router.post('/syncContacts', verifyToken, authController.syncContacts);
  */
 router.delete('/deleteAccount', verifyToken, authController.deleteAccount);
 
+/**
+ * @swagger
+ * /auth/saveFcmToken:
+ *   post:
+ *     summary: Save or update the user's FCM token
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: FCM token to save
+ *               device_type:
+ *                 type: string
+ *                 description: Device type (optional)
+ *     responses:
+ *       200:
+ *         description: FCM token saved successfully
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/saveFcmToken', verifyToken, authController.saveFcmToken);
+
+/**
+ * @swagger
+ * /auth/deleteFcmToken:
+ *   post:
+ *     summary: Delete the user's FCM token
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: FCM token to delete
+ *     responses:
+ *       200:
+ *         description: FCM token deleted successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: FCM token not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/deleteFcmToken', verifyToken, authController.deleteFcmToken);
+
 module.exports = router;
