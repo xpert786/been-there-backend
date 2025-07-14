@@ -229,4 +229,72 @@ router.post('/post/wishlist', verifyToken, postController.wishlistPost);
  */
 router.get('/posts/user/:userId', verifyToken, postController.getUserPosts);
 
+/**
+ * @swagger
+ * /post/flag:
+ *   post:
+ *     summary: Flag a post for inappropriate content
+ *     tags: [Flag]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               postId:
+ *                 type: string
+ *                 description: ID of the post to flag
+ *               reason:
+ *                 type: string
+ *                 description: Reason for flagging
+ *     responses:
+ *       200:
+ *         description: Post flagged successfully
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/post/flag', verifyToken, postController.flagPost);
+/**
+ * @swagger
+ * /post/flags:
+ *   get:
+ *     summary: Get all flags created by the current user
+ *     tags: [Flag]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of user's flagged content
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/post/flags', verifyToken, postController.getUserFlags);
+/**
+ * @swagger
+ * /post/{postId}/flags:
+ *   get:
+ *     summary: Get all flags for a specific post
+ *     tags: [Flag]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the post
+ *     responses:
+ *       200:
+ *         description: List of flags for the post
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/post/:postId/flags', verifyToken, postController.getPostFlags);
+
 module.exports = router;

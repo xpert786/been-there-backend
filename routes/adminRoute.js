@@ -558,4 +558,79 @@ router.put('/admin/profile', verifyToken, adminAuth, upload.single('image'), adm
  */
 router.post('/admin/create-default-admin', adminAuthController.createDefaultAdminAndGetToken);
 
+/**
+ * @swagger
+ * /admin/flags:
+ *   get:
+ *     summary: View all flagged content
+ *     tags: [Admin Flag]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all flagged content
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/admin/flags', verifyToken, adminAuth, adminController.getAllFlaggedContent);
+
+/**
+ * @swagger
+ * /admin/flag/approve:
+ *   post:
+ *     summary: Approve a flagged post
+ *     tags: [Admin Flag]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               flagId:
+ *                 type: string
+ *                 description: ID of the flag to approve
+ *     responses:
+ *       200:
+ *         description: Flag approved
+ *       404:
+ *         description: Flag not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/admin/flag/approve', verifyToken, adminAuth, adminController.approveFlag);
+
+/**
+ * @swagger
+ * /admin/flag/decline:
+ *   post:
+ *     summary: Decline a flagged post
+ *     tags: [Admin Flag]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               flagId:
+ *                 type: string
+ *                 description: ID of the flag to decline
+ *               adminResponse:
+ *                 type: string
+ *                 description: Reason for declining (optional)
+ *     responses:
+ *       200:
+ *         description: Flag declined
+ *       404:
+ *         description: Flag not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/admin/flag/decline', verifyToken, adminAuth, adminController.declineFlag);
+
 module.exports = router;

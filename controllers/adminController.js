@@ -6,6 +6,7 @@ const validator = require('validator');
 const moment = require('moment');
 const s3Util = require('../utils/s3');
 const bcrypt = require('bcrypt');
+const FlaggedContent = models.flaggedContent;
 
 // Get all users (excluding sensitive data)
 exports.getAllUsers = async (req, res) => {
@@ -671,6 +672,55 @@ exports.createDefaultAdminAndGetToken = async (req, res) => {
   } catch (error) {
     console.error('Error in createDefaultAdminAndGetToken:', error);
     return apiResponse.InternalServerError(res, 'Failed to create default admin and generate token');
+  }
+};
+
+// Admin: View all flagged content
+exports.getAllFlaggedContent = async (req, res) => {
+  try {
+    const flags = await FlaggedContent.findAll({
+      include: [models.User, models.Post],
+      order: [['createdAt', 'DESC']],
+    });
+    return apiResponse.SuccessResponseWithData(res, 'All flagged content', flags);
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+// Admin: Approve a flag
+exports.approveFlag = async (req, res) => {
+  try {
+    const { flagId } = req.body;
+    const adminId = req.user.id;
+    const flag = await FlaggedContent.findByPk(flagId);
+    if (!flag) return apiResponse.NotFound(res, 'Flag not found');
+    flag.status = 'approved';
+    flag.adminId = adminId;
+    await flag.save();
+    return apiResponse.SuccessResponseWithData(res, 'Flag approved', flag);
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+// Admin: Decline a flag
+exports.declineFlag = async (req, res) => {
+  try {
+    const { flagId, adminResponse } = req.body;
+    const adminId = req.user.id;
+    const flag = await FlaggedContent.findByPk(flagId);
+    if (!flag) return apiResponse.NotFound(res, 'Flag not found');
+    flag.status = 'declined';
+    flag.adminId = adminId;
+    flag.adminResponse = adminResponse || null;
+    await flag.save();
+    return apiResponse.SuccessResponseWithData(res, 'Flag declined', flag);
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
   }
 };
 

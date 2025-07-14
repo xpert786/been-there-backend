@@ -10,6 +10,7 @@ const User = models.User;
 const Wishlist = models.Wishlist;
 const TopDestination = models.TopDestination;
 const Highlight = models.Highlight;
+const FlaggedContent = models.flaggedContent;
 
 
 const countryToContinent = require('../utils/countryToContinent');
@@ -373,6 +374,51 @@ exports.getUserPosts = async (req, res) => {
       currentPage: parseInt(page),
       totalPages: Math.ceil(totalCount / limit),
     });
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+// User flags a post
+exports.flagPost = async (req, res) => {
+  try {
+    const { postId, reason } = req.body;
+    if (!postId || !reason) {
+      return apiResponse.ValidationError(res, 'postId and reason are required');
+    }
+    const userId = req.user.id;
+    // Prevent duplicate flag by same user for same post
+    const existing = await FlaggedContent.findOne({ where: { postId, userId, status: 'pending' } });
+    if (existing) {
+      return apiResponse.ValidationError(res, 'You have already flagged this post and it is pending review.');
+    }
+    const flag = await FlaggedContent.create({ postId, userId, reason });
+    return apiResponse.SuccessResponseWithData(res, 'Post flagged successfully', flag);
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+// Get all flags by the current user
+exports.getUserFlags = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const flags = await FlaggedContent.findAll({ where: { userId } });
+    return apiResponse.SuccessResponseWithData(res, 'Your flagged content', flags);
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+// Get all flags for a specific post
+exports.getPostFlags = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const flags = await FlaggedContent.findAll({ where: { postId } });
+    return apiResponse.SuccessResponseWithData(res, 'Flags for this post', flags);
   } catch (error) {
     console.error(error);
     return apiResponse.InternalServerError(res, error);
