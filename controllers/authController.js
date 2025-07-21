@@ -645,3 +645,26 @@ exports.acceptTerms = async (req, res) => {
     return apiResponse.InternalServerError(res, error);
   }
 };
+
+/**
+ * @desc Get terms and conditions acceptance status
+ * @route GET /auth/terms
+ * @access Private
+ */
+exports.getTermsStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await models.User.findByPk(userId, {
+      attributes: ['terms_accepted', 'terms_accepted_at']
+    });
+    if (!user) {
+      return apiResponse.NotFound(res, 'User not found');
+    }
+    return apiResponse.SuccessResponseWithData(res, 'Terms acceptance status retrieved successfully', {
+      terms_accepted: user.terms_accepted,
+      terms_accepted_at: user.terms_accepted_at
+    });
+  } catch (error) {
+    return apiResponse.InternalServerError(res, error);
+  }
+};

@@ -459,4 +459,32 @@ router.post('/deleteFcmToken', verifyToken, authController.deleteFcmToken);
  */
 router.post('/terms', verifyToken, authController.acceptTerms);
 
+/**
+ * @swagger
+ * /auth/terms:
+ *   get:
+ *     summary: Check if the authenticated user has accepted terms and conditions
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Terms acceptance status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 terms_accepted:
+ *                   type: boolean
+ *                 terms_accepted_at:
+ *                   type: integer
+ *                   description: Timestamp when terms were accepted (null if not accepted)
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/terms', verifyToken, authController.getTermsStatus);
+
 module.exports = router;
