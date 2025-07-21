@@ -617,3 +617,31 @@ exports.deleteFcmToken = async (req, res) => {
     return apiResponse.InternalServerError(res, 'Failed to delete FCM token');
   }
 };
+
+/**
+ * @desc Accept or reject terms and conditions
+ * @route POST /api/auth/terms
+ * @access Private
+ */
+exports.acceptTerms = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { accepted } = req.body;
+    if (typeof accepted !== 'boolean') {
+      return apiResponse.ValidationError(res, 'accepted (boolean) is required');
+    }
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return apiResponse.NotFound(res, 'User not found');
+    }
+    user.terms_accepted = accepted;
+    user.terms_accepted_at = accepted ? Date.now() : null;
+    await user.save();
+    return apiResponse.SuccessResponseWithData(res, `Terms ${accepted ? 'accepted' : 'rejected'} successfully`, {
+      terms_accepted: user.terms_accepted,
+      terms_accepted_at: user.terms_accepted_at
+    });
+  } catch (error) {
+    return apiResponse.InternalServerError(res, error);
+  }
+};

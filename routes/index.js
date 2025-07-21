@@ -9,6 +9,7 @@ const passportRoute = require('./passportRoute');
 const adminAuthRoute = require('./adminAuthRoute');
 const instagramRoute = require('./instaRoute');
 const notificationRoute = require('./notificationRoute');
+const userBlockRoutes = require('./userBlock');
 
 // Use auth routes
 router.use('/auth', authRoute);
@@ -19,6 +20,7 @@ router.use(socialRoute);
 router.use('/explore', exploreRoute);
 router.use('/passport', passportRoute);
 router.use('/instagram', instagramRoute);
-router.use( notificationRoute);
+router.use(notificationRoute);
+router.use('/user-block', userBlockRoutes);
 
 module.exports = router;

@@ -26,6 +26,21 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'follower_id',
         otherKey: 'user_id'
       });
+      
+      // Blocked users (who I have blocked)
+      User.belongsToMany(models.User, {
+        through: models.UserBlock,
+        as: 'blockedUsers',
+        foreignKey: 'user_id',
+        otherKey: 'target_user_id'
+      });
+      // Users who blocked me
+      User.belongsToMany(models.User, {
+        through: models.UserBlock,
+        as: 'blockedByUsers',
+        foreignKey: 'target_user_id',
+        otherKey: 'user_id'
+      });
     }
   }
   User.init({
@@ -98,6 +113,14 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
     instagram_token_last_refreshed: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
+    terms_accepted: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    terms_accepted_at: {
       type: DataTypes.BIGINT,
       allowNull: true
     }
