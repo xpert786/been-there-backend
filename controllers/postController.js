@@ -34,7 +34,8 @@ exports.createPost = async (req, res) => {
     place_type,
     longitude,
     latitude,
-    city
+    city,
+    tags // <-- add tags to destructuring
   } = req.body;
 
   try {
@@ -42,6 +43,14 @@ exports.createPost = async (req, res) => {
     const normCountry = country ? country.trim().toLowerCase() : '';
     const normCity = city ? city.trim().toLowerCase() : '';
     const continent = countryToContinent(normCountry);
+
+    // Convert tags array to comma-separated string
+    let tagsString = '';
+    if (Array.isArray(tags)) {
+      tagsString = tags.join(',');
+    } else if (typeof tags === 'string') {
+      tagsString = tags;
+    }
 
     // Create the post
     const newPost = await Post.create({
@@ -59,6 +68,7 @@ exports.createPost = async (req, res) => {
       longitude,
       latitude,
       user_id,
+      tags: tagsString // <-- save tags string
     });
 
     // --- Upload Photos to S3 ---
@@ -277,7 +287,34 @@ exports.getUserDetails = async (req, res) => {
 
     // Check for public profile sharing
     if (user.public_profile === false) {
-      return apiResponse.ValidationError(res, "User profile is private");
+      // Only show minimal profile info
+      const totalPosts = await Post.count({ where: { user_id: userId } });
+      const totalFollowers = await Follower.count({ where: { user_id: userId } });
+      const totalFollowing = await Follower.count({ where: { follower_id: userId } });
+
+      // Determine follow button state
+      const isOwner = currentUserId === userId;
+      const followState = isOwner ? null : (
+        await Follower.findOne({ where: { user_id: userId, follower_id: currentUserId } })
+          ? "following"
+          : "follow"
+      );
+
+      return apiResponse.SuccessResponseWithData(res, "User profile is private", {
+        user: {
+          id: user.id,
+          full_name: user.full_name,
+          location: user.location,
+          image: user.image,
+          stats: {
+            totalPosts,
+            totalFollowers,
+            totalFollowing,
+          },
+          follow: followState,
+          owner: isOwner,
+        }
+      });
     }
 
     const totalPosts = await Post.count({ where: { user_id: userId } });

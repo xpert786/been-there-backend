@@ -11,7 +11,7 @@ const router = express.Router();
  * @swagger
  * /post:
  *   post:
- *     summary: Create a new post with multiple photos
+ *     summary: Create a new post with multiple photos and tags
  *     tags: [Post]
  *     security:
  *       - bearerAuth: []
@@ -49,6 +49,17 @@ const router = express.Router();
  *                 type: integer
  *                 minimum: 1
  *                 maximum: 5
+ *               place_type:
+ *                 type: string
+ *               longitude:
+ *                 type: string
+ *               latitude:
+ *                 type: string
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of tags for the post
  *               photos:
  *                 type: array
  *                 items:

@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     country: DataTypes.STRING,
     city: DataTypes.STRING,
-    continent: DataTypes.STRING, // <-- Add continent field
+    continent: DataTypes.STRING, 
     longitude: DataTypes.STRING,
     latitude: DataTypes.STRING,
     visit_date: DataTypes.DATE,
@@ -59,6 +59,10 @@ module.exports = (sequelize, DataTypes) => {
     updatedAt: {
       type: DataTypes.BIGINT,
       defaultValue: moment().valueOf()
+    },
+    tags: {
+      type: DataTypes.STRING,
+      allowNull: true
     }
   }, {
     sequelize,
