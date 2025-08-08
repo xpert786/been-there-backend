@@ -527,6 +527,41 @@ exports.checkMessageRequestEnabled = async (req, res) => {
   }
 };
 
+exports.getFollowing = async (req, res) => {
+  try {
+    const follower_id = req.user.id;
+    
+    const following = await Follower.findAll({
+      where: { follower_id },
+      include: [{
+        model: User,
+        as: 'User',
+        attributes: ['id', 'full_name', 'email', 'image', 'address'],
+        where: { id: { [Op.col]: 'Follower.user_id' } }
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    const formattedFollowing = following.map(f => ({
+      id: f.User.id,
+      full_name: f.User.full_name,
+      email: f.User.email,
+      image: f.User.image,
+      address: f.User.address,
+      followedAt: f.createdAt
+    }));
+
+    return apiResponse.SuccessResponseWithData(
+      res, 
+      'Following list retrieved successfully', 
+      { following: formattedFollowing }
+    );
+  } catch (error) {
+    console.error('Error in getFollowing:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
 // Helper function to handle failed notifications
 async function handleFailedNotifications(error, tokens, user_id) {
   console.log('Handling failed notifications:', error, tokens, user_id);
