@@ -249,4 +249,44 @@ router.delete('/image/delete', socialController.deleteImage);
  */
 router.get('/user/message-request/:userId', socialController.checkMessageRequestEnabled);
 
+/**
+ * @swagger
+ * /social/following:
+ *   get:
+ *     summary: Get all users that the current user is following
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of following users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 following:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                       full_name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       image:
+ *                         type: string
+ *                       location:
+ *                         type: string
+ *                       followedAt:
+ *                         type: string
+ *                         format: date-time
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/social/following', socialController.getFollowing);
+
 module.exports = router;

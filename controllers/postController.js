@@ -313,6 +313,7 @@ exports.getUserDetails = async (req, res) => {
           },
           follow: followState,
           owner: isOwner,
+          is_public: false 
         }
       });
     }
@@ -336,6 +337,7 @@ exports.getUserDetails = async (req, res) => {
           where: { user_id: userId, follower_id: currentUserId },
         }) ? "following" : "follow",
         owner: isOwner,
+        is_public: true // <-- add this key
       },
     });
 
