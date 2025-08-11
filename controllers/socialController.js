@@ -530,31 +530,40 @@ exports.checkMessageRequestEnabled = async (req, res) => {
 exports.getFollowing = async (req, res) => {
   try {
     const follower_id = req.user.id;
-    
-    const following = await Follower.findAll({
+
+    // Get all Follower records where current user is the follower
+    const followingRecords = await Follower.findAll({
       where: { follower_id },
-      include: [{
-        model: User,
-        as: 'User',
-        attributes: ['id', 'full_name', 'email', 'image', 'address'],
-        where: { id: { [Op.col]: 'Follower.user_id' } }
-      }],
+      attributes: ['user_id', 'createdAt'],
       order: [['createdAt', 'DESC']]
     });
 
-    const formattedFollowing = following.map(f => ({
-      id: f.User.id,
-      full_name: f.User.full_name,
-      email: f.User.email,
-      image: f.User.image,
-      address: f.User.address,
-      followedAt: f.createdAt
-    }));
+    // Extract user_ids
+    const userIds = followingRecords.map(f => f.user_id);
+
+    // Fetch user details for all followed users
+    const users = await User.findAll({
+      where: { id: userIds },
+      attributes: ['id', 'full_name', 'email', 'image', 'address']
+    });
+
+    // Map user details with followedAt
+    const following = users.map(user => {
+      const record = followingRecords.find(f => f.user_id === user.id);
+      return {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        image: user.image,
+        address: user.address,
+        followedAt: record ? record.createdAt : null
+      };
+    });
 
     return apiResponse.SuccessResponseWithData(
-      res, 
-      'Following list retrieved successfully', 
-      { following: formattedFollowing }
+      res,
+      'Following list retrieved successfully',
+      { following }
     );
   } catch (error) {
     console.error('Error in getFollowing:', error);
