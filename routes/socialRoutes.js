@@ -257,6 +257,13 @@ router.get('/user/message-request/:userId', socialController.checkMessageRequest
  *     tags: [Social]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Search by full name of the followed user (case-insensitive, partial match)
  *     responses:
  *       200:
  *         description: List of following users retrieved successfully

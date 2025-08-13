@@ -530,6 +530,7 @@ exports.checkMessageRequestEnabled = async (req, res) => {
 exports.getFollowing = async (req, res) => {
   try {
     const follower_id = req.user.id;
+    const { search } = req.query; // Get search parameter
 
     // Get all Follower records where current user is the follower
     const followingRecords = await Follower.findAll({
@@ -541,9 +542,15 @@ exports.getFollowing = async (req, res) => {
     // Extract user_ids
     const userIds = followingRecords.map(f => f.user_id);
 
-    // Fetch user details for all followed users
+    // Build user query with optional search
+    const userWhere = { id: userIds };
+    if (search) {
+      userWhere.full_name = { [Op.iLike]: `%${search}%` }; // Case-insensitive search
+    }
+
+    // Fetch user details for all followed users (with search if provided)
     const users = await User.findAll({
-      where: { id: userIds },
+      where: userWhere,
       attributes: ['id', 'full_name', 'email', 'image', 'address']
     });
 
