@@ -15,7 +15,7 @@ exports.syncInstagram = async (req, res) => {
         form.append('client_id', '1084826773498768');
         form.append('client_secret', '2316bf131bbdcd9b50a5c234c7cf4463');
         form.append('grant_type', 'authorization_code');
-        form.append('redirect_uri', 'beenaround://auth/instagram/');
+        form.append('redirect_uri', 'https://api.beenaround.app/instagram/auth');
         form.append('code', code);
 
         const shortTokenResp = await axios.post('https://api.instagram.com/oauth/access_token', form, {
