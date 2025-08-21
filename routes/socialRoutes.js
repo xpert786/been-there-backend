@@ -296,4 +296,49 @@ router.get('/user/message-request/:userId', socialController.checkMessageRequest
  */
 router.get('/social/following', socialController.getFollowing);
 
+/**
+ * @swagger
+ * /users/status:
+ *   get:
+ *     summary: Get all users (except current user) with follow status and search
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Search by full name or email (case-insensitive, partial match)
+ *     responses:
+ *       200:
+ *         description: Users with follow status fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       full_name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       image:
+ *                         type: string
+ *                       address:
+ *                         type: string
+ *                       isFollowing:
+ *                         type: boolean
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/users/status', socialController.getAllUsersWithFollowStatus);
+
 module.exports = router;

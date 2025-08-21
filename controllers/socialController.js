@@ -578,6 +578,57 @@ exports.getFollowing = async (req, res) => {
   }
 };
 
+// Get all users (except current user) with follow status and search on name/email
+exports.getAllUsersWithFollowStatus = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const { search } = req.query;
+
+    // Build search condition
+    const where = {
+      id: { [Op.ne]: currentUserId }
+    };
+    if (search) {
+      where[Op.or] = [
+        { full_name: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } }
+      ];
+    }
+
+    // Get all users except current user
+    const users = await User.findAll({
+      where,
+      attributes: ['id', 'full_name', 'email', 'image', 'address']
+    });
+
+    // Get all follow records for current user
+    const following = await Follower.findAll({
+      where: { follower_id: currentUserId },
+      attributes: ['user_id']
+    });
+    const followingIds = new Set(following.map(f => f.user_id));
+
+    // Map users with follow status
+    const result = users.map(user => ({
+      id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      image: user.image,
+      address: user.address,
+      isFollowing: followingIds.has(user.id)
+    }));
+
+    return apiResponse.SuccessResponseWithData(
+      res,
+      'Users with follow status fetched successfully',
+      { users: result }
+    );
+  } catch (error) {
+    console.error('Error in getAllUsersWithFollowStatus:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+}
+
 // Helper function to handle failed notifications
 async function handleFailedNotifications(error, tokens, user_id) {
   console.log('Handling failed notifications:', error, tokens, user_id);
@@ -604,6 +655,8 @@ async function handleFailedNotifications(error, tokens, user_id) {
     console.log(`Marked ${invalidTokens.length} invalid FCM tokens`);
   }
 }
+
+
 
 
 

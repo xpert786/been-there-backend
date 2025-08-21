@@ -35,7 +35,8 @@ exports.createPost = async (req, res) => {
     longitude,
     latitude,
     city,
-    tags // <-- add tags to destructuring
+    tags, // <-- add tags to destructuring
+    instagram_photos
   } = req.body;
 
   try {
@@ -76,6 +77,130 @@ exports.createPost = async (req, res) => {
       for (const file of req.files) {
         const image_url = await s3Util.uploadToS3(file);
         await Photo.create({ post_id: newPost.id, image_url }); // use image_url, not url
+      }
+    }
+
+    // --- Upsert Highlights & Top Destinations ---
+    async function upsertHighlightAndTopDestination(user_id, type, value) {
+      const [highlight, created] = await Highlight.findOrCreate({
+        where: { user_id, type, value: value.toLowerCase() },
+        defaults: { count: 1 }
+      });
+      if (!created) {
+        highlight.count += 1;
+        await highlight.save();
+      }
+
+      const [top, topCreated] = await TopDestination.findOrCreate({
+        where: { user_id, type, value: value.toLowerCase() },
+        defaults: { count: 1, visited: true }
+      });
+      if (!topCreated) {
+        top.count += 1;
+        top.visited = true;
+        await top.save();
+      }
+    }
+
+    await upsertHighlightAndTopDestination(user_id, 'continent', continent);
+    if (normCountry) await upsertHighlightAndTopDestination(user_id, 'country', normCountry);
+    if (normCity) await upsertHighlightAndTopDestination(user_id, 'city', normCity);
+
+    const types = ['continent', 'country', 'city'];
+    for (const type of types) {
+      const tops = await TopDestination.findAll({
+        where: { user_id, type },
+        order: [['count', 'DESC']],
+      });
+      if (tops.length > 3) {
+        const toDelete = tops.slice(3);
+        for (const d of toDelete) await d.destroy();
+      }
+    }
+
+    return apiResponse.SuccessResponseWithData(res, 'Post created successfully', newPost);
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+//current use with insetaphotos
+exports.createPostV2 = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return apiResponse.ValidationError(res, errors.array().map(err => err.msg).join(', '));
+  }
+
+  const {
+    country,
+    visit_date,
+    reason_for_visit,
+    overall_rating,
+    experience,
+    cost_rating,
+    safety_rating,
+    food_rating,
+    place_type,
+    longitude,
+    latitude,
+    city,
+    tags,
+    instagram_photos // array of strings
+  } = req.body;
+
+  try {
+    const user_id = req.user.id;
+    const normCountry = country ? country.trim().toLowerCase() : '';
+    const normCity = city ? city.trim().toLowerCase() : '';
+    const continent = countryToContinent(normCountry);
+
+    // Convert tags array to comma-separated string
+    let tagsString = '';
+    if (Array.isArray(tags)) {
+      tagsString = tags.join(',');
+    } else if (typeof tags === 'string') {
+      tagsString = tags;
+    }
+
+    // Create the post
+    const newPost = await Post.create({
+      country,
+      city,
+      continent,
+      visit_date,
+      reason_for_visit,
+      overall_rating,
+      experience,
+      cost_rating,
+      safety_rating,
+      food_rating,
+      place_type,
+      longitude,
+      latitude,
+      user_id,
+      tags: tagsString
+    });
+
+    // --- Upload Photos to S3 from files ---
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const image_url = await s3Util.uploadToS3(file);
+        await Photo.create({ post_id: newPost.id, image_url });
+      }
+    }
+
+    // --- Process Instagram Photos ---
+    if (instagram_photos && Array.isArray(instagram_photos)) {
+      for (const instagramUrl of instagram_photos) {
+        // Only process if it's a non-empty string
+        if (typeof instagramUrl === 'string' && instagramUrl.trim() !== '') {
+          await Photo.create({ 
+            post_id: newPost.id, 
+            image_url: instagramUrl.trim(),
+            is_instagram: true // Optional: add flag to distinguish Instagram photos
+          });
+        }
       }
     }
 

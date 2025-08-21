@@ -87,6 +87,136 @@ router.post(
   postController.createPost
 );
 
+
+/**
+ * @swagger
+ * /post-v2:
+ *   post:
+ *     summary: Create a new post with multiple photos, Instagram photos, and tags
+ *     tags: [Post]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - country
+ *               - city
+ *               - visit_date
+ *               - reason_for_visit
+ *             properties:
+ *               country:
+ *                 type: string
+ *                 example: "france"
+ *               city:
+ *                 type: string
+ *                 example: "paris"
+ *               visit_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2023-10-15"
+ *               reason_for_visit:
+ *                 type: string
+ *                 example: "vacation"
+ *               overall_rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 5
+ *               experience:
+ *                 type: string
+ *                 example: "Amazing experience visiting the Eiffel Tower"
+ *               cost_rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 3
+ *               safety_rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 4
+ *               food_rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 5
+ *               place_type:
+ *                 type: string
+ *                 example: "landmark"
+ *               longitude:
+ *                 type: string
+ *                 example: "2.294481"
+ *               latitude:
+ *                 type: string
+ *                 example: "48.858370"
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of tags for the post
+ *                 example: ["travel", "europe", "vacation"]
+ *               instagram_photos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: url
+ *                 description: Array of Instagram photo URLs (optional)
+ *                 example: ["https://instagram.com/photo1.jpg", "https://instagram.com/photo2.jpg"]
+ *               photos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Array of image files to upload
+ *     responses:
+ *       201:
+ *         description: Post created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Post created successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Post'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/post-v2',
+  verifyToken,
+  upload.array('photos'), // this will handle multiple photo uploads
+  [
+    body('country').notEmpty().withMessage('Country is required'),
+    body('city').notEmpty().withMessage('City is required'),
+    body('visit_date').isDate().withMessage('Visit date must be a valid date'),
+    body('reason_for_visit').notEmpty().withMessage('Reason for visit is required'),
+  ],
+  postController.createPostV2
+);
+
 /**
  * @swagger
  * /posts:
