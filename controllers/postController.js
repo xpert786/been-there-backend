@@ -36,7 +36,6 @@ exports.createPost = async (req, res) => {
     latitude,
     city,
     tags, // <-- add tags to destructuring
-    instagram_photos
   } = req.body;
 
   try {
@@ -149,8 +148,10 @@ exports.createPostV2 = async (req, res) => {
     instagram_photos // array of strings
   } = req.body;
 
+
+  console.log(instagram_photos);
   try {
-    const user_id = req.user.id;
+    const user_id = req.user.id ;
     const normCountry = country ? country.trim().toLowerCase() : '';
     const normCity = city ? city.trim().toLowerCase() : '';
     const continent = countryToContinent(normCountry);
@@ -191,17 +192,34 @@ exports.createPostV2 = async (req, res) => {
     }
 
     // --- Process Instagram Photos ---
-    if (instagram_photos && Array.isArray(instagram_photos)) {
-      for (const instagramUrl of instagram_photos) {
+    let instagramPhotosArr = instagram_photos;
+    if (typeof instagram_photos === 'string') {
+      // Handle comma-separated string or single URL string
+      instagramPhotosArr = instagram_photos.split(',').map(s => s.trim()).filter(Boolean);
+      console.log('Converted instagram_photos string to array:', instagramPhotosArr);
+    }
+    if (instagramPhotosArr && Array.isArray(instagramPhotosArr)) {
+      console.log('Processing instagram_photos:', instagramPhotosArr);
+      for (const instagramUrl of instagramPhotosArr) {
+        console.log('Processing instagram photo url:', instagramUrl);
         // Only process if it's a non-empty string
         if (typeof instagramUrl === 'string' && instagramUrl.trim() !== '') {
-          await Photo.create({ 
-            post_id: newPost.id, 
-            image_url: instagramUrl.trim(),
-            is_instagram: true // Optional: add flag to distinguish Instagram photos
-          });
+          try {
+            const createdPhoto = await Photo.create({ 
+              post_id: newPost.id, 
+              image_url: instagramUrl.trim(),
+              is_instagram: true // Optional: add flag to distinguish Instagram photos
+            });
+            console.log('Created instagram photo:', createdPhoto.toJSON());
+          } catch (err) {
+            console.error('Error creating instagram photo:', err);
+          }
+        } else {
+          console.log('Skipped instagram photo url:', instagramUrl);
         }
       }
+    } else {
+      console.log('instagram_photos is not a valid array:', instagram_photos);
     }
 
     // --- Upsert Highlights & Top Destinations ---
