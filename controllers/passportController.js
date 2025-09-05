@@ -198,7 +198,7 @@ exports.getVisitedCitiesForCountry = async (req, res) => {
 
 exports.getVisitedCities = async (req, res) => {
   try {
-    const user_id = req.user.id;
+    const user_id = req.params.userId || req.user.id; // Use userId from path if present
     // Find all TopDestination entries of type 'country' for this user, visited=true
     const destinations = await TopDestination.findAll({
       where: { user_id, type: 'city', visited: true },
@@ -216,7 +216,7 @@ exports.getVisitedCities = async (req, res) => {
 
 exports.getCityStats = async (req, res) => {
   try {
-    const user_id = req.user.id;
+    const user_id = req.params.userId || req.user.id; // Use userId from path if present
     const { 
       city,
       keyword,

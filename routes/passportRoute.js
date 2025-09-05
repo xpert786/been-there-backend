@@ -227,12 +227,19 @@ router.get('/country/cities', passportController.getVisitedCitiesForCountry);
 
 /**
  * @swagger
- * /passport/cities:
+ * /passport/cities/{userId}:
  *   get:
- *     summary: Get all unique cities the user has visited
+ *     summary: Get all unique cities the specified user has visited
  *     tags: [Passport]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The user ID to get cities for (if not provided, uses current user)
  *     responses:
  *       200:
  *         description: List of unique cities visited
@@ -248,18 +255,23 @@ router.get('/country/cities', passportController.getVisitedCitiesForCountry);
  *       500:
  *         description: Internal server error
  */
-
-router.get('/cities', passportController.getVisitedCities);
+router.get('/cities/:userId', passportController.getVisitedCities);
 
 /**
  * @swagger
- * /passport/city/stats:
+ * /passport/city/stats/{userId}:
  *   get:
- *     summary: Get stats for a selected city with keyword search and view-based filtering/sorting
+ *     summary: Get stats for a selected city for a user with keyword search and view-based filtering/sorting
  *     tags: [Passport]
  *     security:
  *       - bearerAuth: []
  *     parameters:
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The user ID to get city stats for (if not provided, uses current user)
  *       - in: query
  *         name: city
  *         schema:
@@ -383,7 +395,7 @@ router.get('/cities', passportController.getVisitedCities);
  *       500:
  *         description: Internal server error
  */
-router.get('/city/stats', passportController.getCityStats);
+router.get('/city/stats/:userId', passportController.getCityStats);
 
 module.exports = router;
 
