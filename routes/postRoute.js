@@ -438,4 +438,51 @@ router.get('/post/flags', verifyToken, postController.getUserFlags);
  */
 router.get('/post/:postId/flags', verifyToken, postController.getPostFlags);
 
+/**
+ * @swagger
+ * /users/search:
+ *   get:
+ *     summary: Search users by name and show basic details with follow status
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Name to search (case-insensitive, partial match)
+ *     responses:
+ *       200:
+ *         description: User search results
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       full_name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       image:
+ *                         type: string
+ *                       address:
+ *                         type: string
+ *                       isFollowed:
+ *                         type: boolean
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/users/search', verifyToken, postController.searchUsers);
+
 module.exports = router;

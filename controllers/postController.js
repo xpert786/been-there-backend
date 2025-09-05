@@ -607,5 +607,59 @@ exports.getPostFlags = async (req, res) => {
   }
 };
 
+// Search users by name, return basic details and follow status
+exports.searchUsers = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const { name } = req.query;
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return apiResponse.ValidationError(res, 'Search name is required');
+    }
+
+    // Use LIKE and lower() for MariaDB/MySQL compatibility
+    const users = await User.findAll({
+      where: {
+        id: { [Op.ne]: currentUserId },
+        [Op.and]: [
+          // Case-insensitive search for MariaDB/MySQL
+          models.sequelize.where(
+            models.sequelize.fn('LOWER', models.sequelize.col('full_name')),
+            {
+              [Op.like]: `%${name.trim().toLowerCase()}%`
+            }
+          )
+        ]
+      },
+      attributes: ['id', 'full_name', 'email', 'image', 'address']
+    });
+
+    // Get all follow records for current user
+    const following = await Follower.findAll({
+      where: { follower_id: currentUserId },
+      attributes: ['user_id']
+    });
+    const followingIds = new Set(following.map(f => f.user_id));
+
+    // Map users with follow status
+    const result = users.map(user => ({
+      id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      image: user.image,
+      address: user.address,
+      isFollowed: followingIds.has(user.id)
+    }));
+
+    return apiResponse.SuccessResponseWithData(
+      res,
+      'User search results',
+      { users: result }
+    );
+  } catch (error) {
+    console.error('Error in searchUsers:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+}
+
 
 
