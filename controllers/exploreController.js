@@ -16,13 +16,25 @@ const exploreController = {
             });
             const followingIds = followingRows.map(row => row.user_id);
 
-            // Build location query
+            // Split location into keywords and build LIKE queries (MariaDB: use LOWER + LIKE)
+            const keywords = location ? location.split(' ').filter(Boolean) : [];
             const locationQuery = {
-                [Op.or]: [
-                    { continent: location },
-                    { country: location },
-                    { city: location }
-                ]
+                [Op.or]: keywords.map(keyword => ({
+                    [Op.or]: [
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('continent')),
+                            { [Op.like]: `%${keyword.toLowerCase()}%` }
+                        ),
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('country')),
+                            { [Op.like]: `%${keyword.toLowerCase()}%` }
+                        ),
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('city')),
+                            { [Op.like]: `%${keyword.toLowerCase()}%` }
+                        )
+                    ]
+                }))
             };
 
             // Find posts with the specified location
@@ -101,13 +113,25 @@ const exploreController = {
             });
             const followingIds = followingRows.map(row => row.user_id);
 
-            // Build location query
+            // Split location into keywords and build LIKE queries (MariaDB: use LOWER + LIKE)
+            const keywords = location ? location.split(' ').filter(Boolean) : [];
             const locationQuery = {
-                [Op.or]: [
-                    { continent: location },
-                    { country: location },
-                    { city: location }
-                ]
+                [Op.or]: keywords.map(keyword => ({
+                    [Op.or]: [
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('continent')),
+                            { [Op.like]: `%${keyword.toLowerCase()}%` }
+                        ),
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('country')),
+                            { [Op.like]: `%${keyword.toLowerCase()}%` }
+                        ),
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('city')),
+                            { [Op.like]: `%${keyword.toLowerCase()}%` }
+                        )
+                    ]
+                }))
             };
 
             // Build user filter based on followed parameter
