@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocs = require('./swagger/swaggerOptions');
 require('dotenv').config();
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 const routes = require('./routes');
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 
 // Swagger documentation

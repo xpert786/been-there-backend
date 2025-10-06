@@ -103,14 +103,10 @@ router.post(
  *           schema:
  *             type: object
  *             required:
- *               - country
  *               - city
  *               - visit_date
  *               - reason_for_visit
  *             properties:
- *               country:
- *                 type: string
- *                 example: "france"
  *               city:
  *                 type: string
  *                 example: "paris"
@@ -209,7 +205,6 @@ router.post(
   verifyToken,
   upload.array('photos'), // this will handle multiple photo uploads
   [
-    body('country').notEmpty().withMessage('Country is required'),
     body('city').notEmpty().withMessage('City is required'),
     body('visit_date').isDate().withMessage('Visit date must be a valid date'),
     body('reason_for_visit').notEmpty().withMessage('Reason for visit is required'),

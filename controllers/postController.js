@@ -132,7 +132,7 @@ exports.createPostV2 = async (req, res) => {
   }
 
   const {
-    country,
+    // country, <-- REMOVE country from destructuring
     visit_date,
     reason_for_visit,
     overall_rating,
@@ -152,8 +152,19 @@ exports.createPostV2 = async (req, res) => {
   console.log(instagram_photos);
   try {
     const user_id = req.user.id ;
-    const normCountry = country ? country.trim().toLowerCase() : '';
-    const normCity = city ? city.trim().toLowerCase() : '';
+
+    // Parse city to extract country if present
+    let normCity = city ? city.trim() : '';
+    let normCountry = '';
+    if (normCity && normCity.includes(',')) {
+      const parts = normCity.split(',').map(s => s.trim());
+      normCity = parts[0];
+      normCountry = parts[1] || '';
+    }
+    normCity = normCity.toLowerCase();
+    normCountry = normCountry.toLowerCase();
+
+    // Compute continent from country (if available)
     const continent = countryToContinent(normCountry);
 
     // Convert tags array to comma-separated string
@@ -166,8 +177,8 @@ exports.createPostV2 = async (req, res) => {
 
     // Create the post
     const newPost = await Post.create({
-      country,
-      city,
+      country: normCountry, // set from parsed value
+      city: normCity,
       continent,
       visit_date,
       reason_for_visit,
