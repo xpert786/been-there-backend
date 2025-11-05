@@ -1,34 +1,26 @@
-//require('dotenv').config(); 
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config();
 
 module.exports = {
-  
-  'production': {
-    'username': process.env.USERNAME,
-    'password': process.env.PASSWORD,
-    'database': process.env.DATABASE_NAME,
-    'host':     process.env.HOSTNAME,
-  
-    'dialect': 'mysql',
-    'logging':  true,
-    
+  development: {
+    username: process.env.USERNAME || 'been_user',
+    password: process.env.PASSWORD || 'Been!New-2025',
+    database: process.env.DATABASE_NAME || 'been_there_app',
+    host: process.env.HOSTNAME || '127.0.0.1',
+    dialect: 'mysql',
+    logging: true
   },
-  'test': {
-    'username': 'root',
-    'password': '',
-    'database': 'travelo',
-    'host': '127.0.0.1',
-    'dialect': 'mysql'
+  test: {
+    username: process.env.USERNAME || 'been_user',
+    password: process.env.PASSWORD || 'Been!New-2025',
+    database: process.env.DATABASE_NAME || 'been_there_app_test',
+    host: process.env.HOSTNAME || '127.0.0.1',
+    dialect: 'mysql'
   },
-  'development': {
-    'username':  'root',  
-    'password':  '',
-    'database':'travelo', 
-    'host':     process.env.HOSTNAME,
-    'dialect': 'mysql'
+  production: {
+    username: process.env.USERNAME,
+    password: process.env.PASSWORD,
+    database: process.env.DATABASE_NAME,
+    host: process.env.HOSTNAME,
+    dialect: 'mysql'
   }
-  
-  
 };
-

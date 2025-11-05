@@ -52,9 +52,11 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: 'flaggedContent',
+      modelName: 'FlaggedContent',
       timestamps: true,
-    }
+      tableName: 'FlaggedContents', 
+      freezeTableName: true,       
+   }
   );
   return FlaggedContent;
 }; 
