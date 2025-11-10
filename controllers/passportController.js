@@ -16,7 +16,7 @@ exports.getVisitedCountries = async (req, res) => {
     const countries = Array.from(countriesSet);
     return apiResponse.SuccessResponseWithData(res, 'Countries fetched successfully', { countries });
   } catch (error) {
-    console.error('Error in getVisitedCountries:', error);
+    console.error('Error in getVisitedCities:', error);
     return apiResponse.InternalServerError(res, error);
   }
 };
@@ -197,16 +197,40 @@ exports.getVisitedCitiesForCountry = async (req, res) => {
 };
 
 exports.getVisitedCities = async (req, res) => {
+  console.log('getVisitedCities=============>>>>>>>>>>', req.params.userId);
   try {
-    const user_id = req.params.userId || req.user.id; // Use userId from path if present
-    // Find all TopDestination entries of type 'country' for this user, visited=true
-    const destinations = await TopDestination.findAll({
-      where: { user_id, type: 'city', visited: true },
-      attributes: ['value']
+    const user_id = req.params.userId || req.user.id;
+
+    const posts = await Post.findAll({
+      where: {
+        user_id,
+        city: {
+          [Op.ne]: null
+        }
+      },
+      attributes: ['city'],
+      order: [['visit_date', 'DESC']],
+      raw: true
     });
-    // Extract unique country names
-    const citiesSet = new Set(destinations.map(d => d.value));
-    const cities = Array.from(citiesSet);
+
+    const seen = new Set();
+    const cities = [];
+
+    for (const post of posts) {
+      const cityName = post.city ? post.city.trim() : '';
+      if (!cityName) {
+        continue;
+      }
+
+      const dedupeKey = cityName.toLowerCase();
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      cities.push(cityName);
+    }
+
     return apiResponse.SuccessResponseWithData(res, 'Cities fetched successfully', { cities });
   } catch (error) {
     console.error('Error in getVisitedCountries:', error);
