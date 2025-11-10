@@ -63,6 +63,10 @@ module.exports = (sequelize, DataTypes) => {
     tags: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    place_type: {
+      type: DataTypes.STRING,
+      allowNull: true
     }
   }, {
     sequelize,

@@ -307,6 +307,8 @@ exports.getCityStats = async (req, res) => {
       order: [[finalSortBy, finalSortOrder]]
     });
 
+    console.log(posts,'posts===========>>1223')
+
     const visitCount = posts.length;
     const countriesSet = new Set(posts.map(p => p.country).filter(Boolean));
     const countriesVisited = countriesSet.size;
@@ -340,6 +342,7 @@ exports.getCityStats = async (req, res) => {
       food_rating: post.food_rating,
       like_count: post.like_count,
       comment_count: post.comment_count,
+      place_type:post.place_type,
       photos: post.Photos.map(photo => ({
         id: photo.id,
         image_url: photo.image_url
