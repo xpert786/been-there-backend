@@ -398,6 +398,7 @@ exports.likePost = async (req, res) => {
           const message = `${liker.full_name || 'Someone'} liked your post.`;
           console.log('Creating notification in DB with message:', message);
 
+          const timestamp = Date.now();
           const notification = await models.Notification.create({
             user_id: postOwner.id,
             notification_type: 3,
@@ -405,8 +406,8 @@ exports.likePost = async (req, res) => {
             reference_id: post_id,
             is_read: false,
             sender_id: user_id,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            createdAt: timestamp,
+            updatedAt: timestamp
           });
           console.log('Notification DB entry created:', notification);
 
@@ -502,6 +503,7 @@ exports.commentOnPost = async (req, res) => {
         const message = `${commenter.full_name || 'Someone'} commented on your post.`;
 
         // Store notification in DB
+        const timestamp = Date.now();
         const notification = await models.Notification.create({
           user_id: postOwner.id,
           notification_type: 3,
@@ -509,8 +511,8 @@ exports.commentOnPost = async (req, res) => {
           reference_id: postId,
           is_read: false,
           sender_id: userId,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: timestamp,
+          updatedAt: timestamp
         });
 
         // Send push notification
@@ -779,6 +781,67 @@ exports.getFollowing = async (req, res) => {
   }
 };
 
+exports.getFollowers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { search } = req.query;
+
+    const followerRecords = await Follower.findAll({
+      where: { user_id: userId },
+      attributes: ['follower_id', 'createdAt'],
+      order: [['createdAt', 'DESC']]
+    });
+
+    if (!followerRecords.length) {
+      return apiResponse.SuccessResponseWithData(
+        res,
+        'Followers list retrieved successfully',
+        { followers: [] }
+      );
+    }
+
+    const followerIds = followerRecords.map(record => record.follower_id);
+
+    const userWhere = { id: followerIds };
+    if (search) {
+      userWhere.full_name = { [Op.iLike]: `%${search}%` };
+    }
+
+    const users = await User.findAll({
+      where: userWhere,
+      attributes: ['id', 'full_name', 'email', 'image', 'address']
+    });
+
+    const userMap = new Map(users.map(user => [user.id, user]));
+
+    const followers = followerRecords
+      .map(record => {
+        const user = userMap.get(record.follower_id);
+        if (!user) {
+          return null;
+        }
+        return {
+          id: user.id,
+          full_name: user.full_name,
+          email: user.email,
+          image: user.image,
+          address: user.address,
+          followedAt: record.createdAt
+        };
+      })
+      .filter(Boolean);
+
+    return apiResponse.SuccessResponseWithData(
+      res,
+      'Followers list retrieved successfully',
+      { followers }
+    );
+  } catch (error) {
+    console.error('Error in getFollowers:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
 // Get all users (except current user) with follow status and search on name/email
 exports.getAllUsersWithFollowStatus = async (req, res) => {
   try {
@@ -892,6 +955,7 @@ async function maybeSendFollowNotification({ type, recipient, actor, message, da
     return;
   }
 
+  const timestamp = Date.now();
   const notification = await models.Notification.create({
     user_id: recipient.id,
     notification_type: type,
@@ -899,8 +963,8 @@ async function maybeSendFollowNotification({ type, recipient, actor, message, da
     reference_id: referenceId || data.request_id || (actor ? actor.id : null),
     sender_id: actor ? actor.id : null,
     is_read: false,
-    createdAt: new Date(),
-    updatedAt: new Date()
+    createdAt: timestamp,
+    updatedAt: timestamp
   });
 
   const fcmTokens = await models.FcmToken.findAll({

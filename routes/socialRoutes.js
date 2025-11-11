@@ -335,6 +335,53 @@ router.get('/user/message-request/:userId', socialController.checkMessageRequest
 
 /**
  * @swagger
+ * /social/followers:
+ *   get:
+ *     summary: Get all users that follow the current user
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Search by full name of the follower (case-insensitive, partial match)
+ *     responses:
+ *       200:
+ *         description: List of followers retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 followers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                       full_name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       image:
+ *                         type: string
+ *                       address:
+ *                         type: string
+ *                       followedAt:
+ *                         type: integer
+ *                         format: int64
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/social/followers', socialController.getFollowers);
+
+/**
+ * @swagger
  * /social/following:
  *   get:
  *     summary: Get all users that the current user is following
