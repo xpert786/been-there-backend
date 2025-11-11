@@ -1,5 +1,5 @@
 const models = require('../models');
-const { User, Post, Like, Comment, Follower, Wishlist, TopDestination, Photo } = models;
+const { User, Post, Like, Comment, Follower, Wishlist, TopDestination, Photo, FollowRequest } = models;
 const { Op } = require('sequelize');
 const moment = require('moment');
 const apiResponse = require('../utils/apiResponse');
@@ -12,109 +12,69 @@ const { sendNotification } = require('../utils/notification'); // Add this impor
 
 exports.followUser = async (req, res) => {
   const { id: userId } = req.user;
-  const { target_user_id: targetUserId } = req.body;
+  const { target_user_id: targetUserId, action } = req.body;
 
   try {
     if (!targetUserId) {
       return apiResponse.ValidationError(res, "Target user ID is required.");
     }
-    
+
     if (userId === targetUserId) {
       return apiResponse.ValidationError(res, "You cannot follow yourself.");
     }
 
-    // Fetch target user details
     const targetUser = await User.findByPk(targetUserId, {
-      attributes: ['id', 'full_name', 'image', 'email', 'notification_type']
+      attributes: ['id', 'full_name', 'image', 'email', 'notification_type', 'public_profile']
     });
     if (!targetUser) {
       return apiResponse.NotFound(res, "Target user not found.");
     }
 
-    // Fetch current user details
     const currentUser = await User.findByPk(userId, {
-      attributes: ['id', 'full_name', 'image', 'email']
+      attributes: ['id', 'full_name', 'image', 'email', 'notification_type']
     });
     if (!currentUser) {
       return apiResponse.NotFound(res, "Current user not found.");
     }
 
-    // Check if already following
+    const now = Date.now();
+
     const existingFollow = await Follower.findOne({
       where: { user_id: targetUserId, follower_id: userId },
     });
 
-    if (existingFollow) {
-      // Unfollow
-      await Follower.destroy({
-        where: { user_id: targetUserId, follower_id: userId },
+    const existingRequest = await FollowRequest.findOne({
+      where: {
+        requester_id: userId,
+        target_user_id: targetUserId
+      }
+    });
+
+    if (action === 'cancel') {
+      if (!existingRequest || existingRequest.status !== 'pending') {
+        return apiResponse.ValidationError(res, "No pending follow request to cancel.");
+      }
+      existingRequest.status = 'cancelled';
+      existingRequest.updatedAt = now;
+      await existingRequest.save();
+
+      return apiResponse.SuccessResponseWithData(res, "Follow request cancelled.", {
+        followStatus: 'cancelled',
+        requestId: existingRequest.id
       });
+    }
+
+    if (existingFollow) {
+      await existingFollow.destroy();
+      if (existingRequest) {
+        existingRequest.status = 'cancelled';
+        existingRequest.updatedAt = now;
+        await existingRequest.save();
+      }
 
       return apiResponse.SuccessResponseWithData(res, "Successfully unfollowed user", {
         isFollowing: false,
-        user: {
-          id: targetUser.id,
-          name: targetUser.full_name,
-          image: targetUser.image,
-          email: targetUser.email
-        }
-      });
-    } else {
-      // Follow
-      await Follower.create({ user_id: targetUserId, follower_id: userId });
-
-      // --- Notification logic for follow ---
-      // Notification type 4: follow
-      const notificationTypes = targetUser.notification_type
-        ? targetUser.notification_type.toString().split(',').map(Number)
-        : [];
-      if (notificationTypes.includes(4)) {
-        const message = `${currentUser.full_name || 'Someone'} started following you.`;
-        // Store notification in DB
-        const notification = await models.Notification.create({
-          user_id: targetUser.id,
-          notification_type: 4,
-          message,
-          reference_id: userId, // reference to the follower
-          is_read: false,
-          sender_id: userId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-
-        // Send push notification
-        const fcmTokens = await models.FcmToken.findAll({
-          where: { user_id: targetUser.id }
-        });
-        if (fcmTokens.length > 0) {
-          const tokens = fcmTokens.map(t => t.token).filter(Boolean);
-          try {
-            await sendNotification({
-              token: tokens,
-              notification: {
-                title: 'New Follower',
-                body: message,
-                ...(currentUser.image && { imageUrl: currentUser.image })
-              },
-              data: {
-                type: '4',
-                follower_id: userId.toString(),
-                notification_id: notification.id.toString(),
-                sender_id: userId.toString(),
-                timestamp: Date.now().toString(),
-                click_action: 'FLUTTER_NOTIFICATION_CLICK'
-              }
-            });
-          } catch (err) {
-            console.error('Notification send error:', err);
-            await handleFailedNotifications(err, tokens, targetUser.id);
-          }
-        }
-      }
-      // --- End notification logic ---
-
-      return apiResponse.SuccessResponseWithData(res, "Successfully followed user", {
-        isFollowing: true,
+        followStatus: 'cancelled',
         user: {
           id: targetUser.id,
           name: targetUser.full_name,
@@ -123,9 +83,250 @@ exports.followUser = async (req, res) => {
         }
       });
     }
+
+    const isPublicProfile = targetUser.public_profile === true;
+
+    if (isPublicProfile) {
+      if (!existingRequest) {
+        await FollowRequest.create({
+          requester_id: userId,
+          target_user_id: targetUserId,
+          status: 'accepted',
+          createdAt: now,
+          updatedAt: now
+        });
+      } else {
+        existingRequest.status = 'accepted';
+        existingRequest.updatedAt = now;
+        await existingRequest.save();
+      }
+
+      const [followerRecord, created] = await Follower.findOrCreate({
+        where: { user_id: targetUserId, follower_id: userId },
+        defaults: { createdAt: now, updatedAt: now }
+      });
+      if (!created) {
+        await followerRecord.update({ updatedAt: now });
+      }
+
+      await maybeSendFollowNotification({
+        type: 4,
+        recipient: targetUser,
+        actor: currentUser,
+        message: `${currentUser.full_name || 'Someone'} started following you.`,
+        data: {
+          type: '4',
+          follower_id: userId.toString()
+        }
+      });
+
+      return apiResponse.SuccessResponseWithData(res, "Successfully followed user", {
+        isFollowing: true,
+        followStatus: 'accepted',
+        user: {
+          id: targetUser.id,
+          name: targetUser.full_name,
+          image: targetUser.image,
+          email: targetUser.email
+        }
+      });
+    }
+
+    if (existingRequest && existingRequest.status === 'pending') {
+      return apiResponse.SuccessResponseWithData(res, "Follow request already pending.", {
+        followStatus: 'pending',
+        requestId: existingRequest.id
+      });
+    }
+
+    if (existingRequest) {
+      existingRequest.status = 'pending';
+      existingRequest.updatedAt = now;
+      await existingRequest.save();
+    } else {
+      await FollowRequest.create({
+        requester_id: userId,
+        target_user_id: targetUserId,
+        status: 'pending',
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+
+    const requestRecord = existingRequest || await FollowRequest.findOne({
+      where: { requester_id: userId, target_user_id: targetUserId }
+    });
+
+    await maybeSendFollowNotification({
+      type: 5,
+      recipient: targetUser,
+      actor: currentUser,
+      message: `${currentUser.full_name || 'Someone'} requested to follow you.`,
+      data: {
+        type: '5',
+        request_id: requestRecord.id
+      }
+    });
+
+    return apiResponse.SuccessResponseWithData(res, "Follow request sent.", {
+      followStatus: 'pending',
+      requestId: requestRecord.id
+    });
   } catch (error) {
-    console.error("Toggle follow error:", error);
+    console.error("Follow request error:", error);
     return apiResponse.InternalServerError(res, error.message || "Something went wrong.");
+  }
+};
+
+exports.getFollowRequests = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const requests = await FollowRequest.findAll({
+      where: {
+        target_user_id: userId,
+        status: 'pending'
+      },
+      include: [
+        {
+          model: User,
+          as: 'requester',
+          attributes: ['id', 'full_name', 'email', 'image']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    const formatted = requests.map(request => ({
+      id: request.id,
+      status: request.status,
+      createdAt: request.createdAt,
+      requester: request.requester ? {
+        id: request.requester.id,
+        full_name: request.requester.full_name,
+        email: request.requester.email,
+        image: request.requester.image
+      } : null
+    }));
+
+    return apiResponse.SuccessResponseWithData(res, 'Follow requests fetched successfully', {
+      requests: formatted
+    });
+  } catch (error) {
+    console.error('Error fetching follow requests:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+exports.respondToFollowRequest = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { requestId } = req.params;
+    const { decision } = req.body;
+
+    if (!['accept', 'reject'].includes(decision)) {
+      return apiResponse.ValidationError(res, 'Decision must be either accept or reject.');
+    }
+
+    const followRequest = await FollowRequest.findByPk(requestId, {
+      include: [
+        { model: User, as: 'requester', attributes: ['id', 'full_name', 'email', 'image', 'notification_type'] },
+        { model: User, as: 'targetUser', attributes: ['id', 'full_name', 'email', 'image'] }
+      ]
+    });
+
+    if (!followRequest || followRequest.target_user_id !== userId) {
+      return apiResponse.NotFound(res, 'Follow request not found.');
+    }
+
+    if (followRequest.status !== 'pending') {
+      return apiResponse.ValidationError(res, 'Follow request is no longer pending.');
+    }
+
+    const now = Date.now();
+
+    if (decision === 'accept') {
+      followRequest.status = 'accepted';
+      followRequest.updatedAt = now;
+      await followRequest.save();
+
+      const [followRecord, created] = await Follower.findOrCreate({
+        where: { user_id: userId, follower_id: followRequest.requester_id },
+        defaults: { createdAt: now, updatedAt: now }
+      });
+      if (!created) {
+        await followRecord.update({ updatedAt: now });
+      }
+
+      await maybeSendFollowNotification({
+        type: 6,
+        recipient: followRequest.requester,
+        actor: followRequest.targetUser,
+        message: `${followRequest.targetUser.full_name || 'A user'} accepted your follow request.`,
+        data: {
+          type: '6',
+          request_id: followRequest.id
+        },
+        referenceId: followRequest.target_user_id
+      });
+
+      return apiResponse.SuccessResponseWithData(res, 'Follow request accepted.', {
+        followStatus: 'accepted'
+      });
+    }
+
+    followRequest.status = 'rejected';
+    followRequest.updatedAt = now;
+    await followRequest.save();
+    await Follower.destroy({
+      where: { user_id: userId, follower_id: followRequest.requester_id }
+    });
+
+    await maybeSendFollowNotification({
+      type: 7,
+      recipient: followRequest.requester,
+      actor: followRequest.targetUser,
+      message: `${followRequest.targetUser.full_name || 'A user'} rejected your follow request.`,
+      data: {
+        type: '7',
+        request_id: followRequest.id
+      },
+      referenceId: followRequest.target_user_id
+    });
+
+    return apiResponse.SuccessResponseWithData(res, 'Follow request rejected.', {
+      followStatus: 'rejected'
+    });
+  } catch (error) {
+    console.error('Error responding to follow request:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
+exports.cancelFollowRequest = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { requestId } = req.params;
+
+    const followRequest = await FollowRequest.findByPk(requestId);
+    if (!followRequest || followRequest.requester_id !== userId) {
+      return apiResponse.NotFound(res, 'Follow request not found.');
+    }
+
+    if (followRequest.status !== 'pending') {
+      return apiResponse.ValidationError(res, 'Only pending follow requests can be cancelled.');
+    }
+
+    followRequest.status = 'cancelled';
+    followRequest.updatedAt = Date.now();
+    await followRequest.save();
+
+    return apiResponse.SuccessResponseWithData(res, 'Follow request cancelled.', {
+      followStatus: 'cancelled'
+    });
+  } catch (error) {
+    console.error('Error cancelling follow request:', error);
+    return apiResponse.InternalServerError(res, error);
   }
 };
 
@@ -608,6 +809,14 @@ exports.getAllUsersWithFollowStatus = async (req, res) => {
     });
     const followingIds = new Set(following.map(f => f.user_id));
 
+    const followRequests = await FollowRequest.findAll({
+      where: { requester_id: currentUserId },
+      attributes: ['target_user_id', 'status']
+    });
+    const followRequestStatusByUser = new Map(
+      followRequests.map(request => [request.target_user_id, request.status])
+    );
+
     // Map users with follow status
     const result = users.map(user => ({
       id: user.id,
@@ -615,7 +824,10 @@ exports.getAllUsersWithFollowStatus = async (req, res) => {
       email: user.email,
       image: user.image,
       address: user.address,
-      isFollowing: followingIds.has(user.id)
+      isFollowing: followingIds.has(user.id),
+      followStatus: followingIds.has(user.id)
+        ? 'accepted'
+        : (followRequestStatusByUser.get(user.id) || 'none')
     }));
 
     return apiResponse.SuccessResponseWithData(
@@ -626,6 +838,100 @@ exports.getAllUsersWithFollowStatus = async (req, res) => {
   } catch (error) {
     console.error('Error in getAllUsersWithFollowStatus:', error);
     return apiResponse.InternalServerError(res, error);
+  }
+}
+
+function parseNotificationPreferences(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const parts = value
+    .toString()
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(Number)
+    .filter(num => !Number.isNaN(num));
+
+  return parts.length ? parts : null;
+}
+
+function shouldSendNotification(rawPreference, type) {
+  const prefs = parseNotificationPreferences(rawPreference);
+  if (!prefs) {
+    return true;
+  }
+  if (prefs.includes(0)) {
+    return true;
+  }
+  return prefs.includes(type);
+}
+
+function getNotificationTitle(notificationType) {
+  switch (notificationType) {
+    case 4:
+      return 'New Follower';
+    case 5:
+      return 'Follow Request';
+    case 6:
+      return 'Follow Request Accepted';
+    case 7:
+      return 'Follow Request Rejected';
+    default:
+      return 'Notification';
+  }
+}
+
+async function maybeSendFollowNotification({ type, recipient, actor, message, data = {}, referenceId }) {
+  if (!recipient) {
+    return;
+  }
+
+  if (!shouldSendNotification(recipient.notification_type, type)) {
+    return;
+  }
+
+  const notification = await models.Notification.create({
+    user_id: recipient.id,
+    notification_type: type,
+    message,
+    reference_id: referenceId || data.request_id || (actor ? actor.id : null),
+    sender_id: actor ? actor.id : null,
+    is_read: false,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+
+  const fcmTokens = await models.FcmToken.findAll({
+    where: { user_id: recipient.id }
+  });
+
+  const tokens = fcmTokens.map(t => t.token).filter(Boolean);
+  if (!tokens.length) {
+    return;
+  }
+
+  try {
+    await sendNotification({
+      token: tokens,
+      notification: {
+        title: getNotificationTitle(type),
+        body: message,
+        ...(actor && actor.image && { imageUrl: actor.image })
+      },
+      data: {
+        ...data,
+        type: String(type),
+        notification_id: notification.id.toString(),
+        sender_id: actor && actor.id ? actor.id.toString() : '',
+        timestamp: Date.now().toString(),
+        click_action: 'FLUTTER_NOTIFICATION_CLICK'
+      }
+    });
+  } catch (err) {
+    console.error('Notification send error:', err);
+    await handleFailedNotifications(err, tokens, recipient.id);
   }
 }
 

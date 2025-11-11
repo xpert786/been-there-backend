@@ -20,13 +20,25 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     notification_type: {
-        type: DataTypes.INTEGER, // Change to INTEGER for type consistency
-        allowNull: false,
-      comment:"1:new follower,2:message,3:like and comment,4:email"
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      comment: "1:new follower,2:message,3:like/comment,4:follow,5:follow request,6:follow request accepted,7:follow request rejected"
     },
     message: {
       type: DataTypes.STRING,
       allowNull: false
+    },
+    reference_id: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    sender_id: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    is_read: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
     },
     createdAt: {
       type: DataTypes.BIGINT,

@@ -74,7 +74,7 @@ module.exports = (sequelize, DataTypes) => {
     notification_type:{
       type:DataTypes.STRING,
       defaultValue:'0',
-      comment:"1:new follower,2:message,3:like and comment,4:email"
+      comment:"0:all,1:new follower,2:message,3:like/comment,4:follow,5:follow request,6:follow request accepted,7:follow request rejected"
     },
     public_profile: {
       type: DataTypes.BOOLEAN,

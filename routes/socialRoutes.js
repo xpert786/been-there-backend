@@ -11,7 +11,7 @@ router.use(verifyToken);
  * @swagger
  * /follow:
  *   post:
- *     summary: Toggle follow/unfollow a user
+ *     summary: Follow, unfollow, or manage follow requests for a user
  *     tags: [Social]
  *     security:
  *       - bearerAuth: []
@@ -25,15 +25,99 @@ router.use(verifyToken);
  *               target_user_id:
  *                 type: string
  *                 example: "123"
+ *               action:
+ *                 type: string
+ *                 enum: [cancel]
+ *                 description: Optional action. Omit to send a follow request / follow a public user. Use `cancel` to withdraw a pending request.
  *     responses:
  *       200:
- *         description: Follow/unfollow toggled successfully
+ *         description: Follow state updated successfully
  *       400:
  *         description: Validation error
  *       500:
  *         description: Internal server error
  */
 router.post('/follow', socialController.followUser);
+
+/**
+ * @swagger
+ * /follow/requests:
+ *   get:
+ *     summary: Get pending follow requests for the current user
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of pending follow requests
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/follow/requests', socialController.getFollowRequests);
+
+/**
+ * @swagger
+ * /follow/requests/{requestId}/respond:
+ *   post:
+ *     summary: Accept or reject a follow request
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the follow request
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               decision:
+ *                 type: string
+ *                 enum: [accept, reject]
+ *     responses:
+ *       200:
+ *         description: Follow request handled successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Follow request not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/follow/requests/:requestId/respond', socialController.respondToFollowRequest);
+
+/**
+ * @swagger
+ * /follow/requests/{requestId}/cancel:
+ *   post:
+ *     summary: Cancel a pending follow request
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the follow request to cancel
+ *     responses:
+ *       200:
+ *         description: Follow request cancelled successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Follow request not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/follow/requests/:requestId/cancel', socialController.cancelFollowRequest);
 
 /**
  * @swagger

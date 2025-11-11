@@ -229,7 +229,7 @@ exports.editProfile = async (req, res) => {
     }
 
     // Validate notification_type
-    if (notification_type && !/^(?:[1-4](?:,[1-4])*)?$/.test(notification_type)) {
+    if (notification_type && !/^(?:[0-7](?:,[0-7])*)?$/.test(notification_type)) {
       return apiResponse.ValidationError(res, 'Invalid notification_type format');
     }
 
