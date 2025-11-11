@@ -214,6 +214,37 @@ router.post(
 
 /**
  * @swagger
+ * /post/myposts:
+ *   get:
+ *     summary: Get all posts created by the authenticated user
+ *     tags: [Post]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Page number for pagination (defaults to 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Number of posts per page (defaults to 10). If omitted or invalid, all posts are returned.
+ *     responses:
+ *       200:
+ *         description: Posts fetched successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/post/myposts', verifyToken, postController.getMyPosts);
+
+/**
+ * @swagger
  * /posts:
  *   get:
  *     summary: Fetch posts based on type (discover or following)

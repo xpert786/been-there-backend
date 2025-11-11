@@ -357,6 +357,73 @@ exports.getPosts = async (req, res) => {
   }
 };
 
+exports.getMyPosts = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+
+    const parsedLimit = parseInt(limit, 10);
+    const parsedPage = parseInt(page, 10);
+    const usePagination = !Number.isNaN(parsedLimit) && parsedLimit > 0;
+
+    const whereClause = { user_id };
+    const totalCount = await Post.count({ where: whereClause });
+
+    const queryOptions = {
+      where: whereClause,
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'full_name', 'email', 'image'],
+        },
+        {
+          model: Photo,
+          attributes: ['id', 'image_url'],
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    };
+
+    if (usePagination) {
+      queryOptions.limit = parsedLimit;
+      queryOptions.offset = (parsedPage - 1) * parsedLimit;
+    }
+
+    const posts = await Post.findAll(queryOptions);
+    const postIds = posts.map(post => post.id);
+
+    let likedPostIds = new Set();
+    if (postIds.length > 0) {
+      const likes = await models.Like.findAll({
+        where: { user_id, post_id: { [Op.in]: postIds } },
+        attributes: ['post_id']
+      });
+      likedPostIds = new Set(likes.map(like => like.post_id));
+    }
+
+    const formattedPosts = posts.map(post => {
+      const postObj = post.toJSON();
+      postObj.isLiked = likedPostIds.has(post.id);
+      return postObj;
+    });
+
+    const responseMeta = {
+      posts: formattedPosts,
+      totalCount,
+    };
+
+    if (usePagination) {
+      responseMeta.currentPage = parsedPage;
+      responseMeta.totalPages = Math.ceil(totalCount / parsedLimit);
+    }
+
+    return apiResponse.SuccessResponseWithData(res, 'User posts retrieved successfully', responseMeta);
+  } catch (error) {
+    console.error(error);
+    return apiResponse.InternalServerError(res, error);
+  }
+};
+
 exports.getPostDetail = async (req, res) => {
   const { postId } = req.params;
   const { page = 1, limit = 10 } = req.query;
