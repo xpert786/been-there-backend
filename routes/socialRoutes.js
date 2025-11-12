@@ -375,6 +375,14 @@ router.get('/user/message-request/:userId', socialController.checkMessageRequest
  *                       followedAt:
  *                         type: integer
  *                         format: int64
+ *                       status_type:
+ *                         type: string
+ *                         enum: [followed, req_sent, no_follow]
+ *                         description: |
+ *                           Relationship status from logged-in user's perspective:
+ *                           - "followed": Logged-in user is following this follower back
+ *                           - "req_sent": Logged-in user has sent a pending follow request to this follower
+ *                           - "no_follow": Logged-in user is not following this follower and hasn't sent a request
  *       500:
  *         description: Internal server error
  */

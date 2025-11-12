@@ -812,6 +812,27 @@ exports.getFollowers = async (req, res) => {
       attributes: ['id', 'full_name', 'email', 'image', 'address']
     });
 
+    // Check if logged-in user is following any of these followers back
+    const followingRecords = await Follower.findAll({
+      where: { 
+        follower_id: userId,
+        user_id: { [Op.in]: followerIds }
+      },
+      attributes: ['user_id']
+    });
+    const followingIds = new Set(followingRecords.map(f => f.user_id));
+
+    // Check if logged-in user has sent follow requests to any of these followers
+    const followRequests = await FollowRequest.findAll({
+      where: { 
+        requester_id: userId,
+        target_user_id: { [Op.in]: followerIds },
+        status: 'pending'
+      },
+      attributes: ['target_user_id']
+    });
+    const pendingRequestIds = new Set(followRequests.map(req => req.target_user_id));
+
     const userMap = new Map(users.map(user => [user.id, user]));
 
     const followers = followerRecords
@@ -820,13 +841,23 @@ exports.getFollowers = async (req, res) => {
         if (!user) {
           return null;
         }
+
+        // Determine status_type
+        let status_type = 'no_follow';
+        if (followingIds.has(user.id)) {
+          status_type = 'followed';
+        } else if (pendingRequestIds.has(user.id)) {
+          status_type = 'req_sent';
+        }
+
         return {
           id: user.id,
           full_name: user.full_name,
           email: user.email,
           image: user.image,
           address: user.address,
-          followedAt: record.createdAt
+          followedAt: record.createdAt,
+          status_type
         };
       })
       .filter(Boolean);

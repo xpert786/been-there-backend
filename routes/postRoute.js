@@ -110,6 +110,10 @@ router.post(
  *               city:
  *                 type: string
  *                 example: "paris"
+ *               country:
+ *                 type: string
+ *                 description: Country name (optional, will be parsed from city if not provided)
+ *                 example: "india"
  *               visit_date:
  *                 type: string
  *                 format: date

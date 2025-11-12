@@ -43,6 +43,7 @@ exports.createPost = async (req, res) => {
     const normCountry = country ? country.trim().toLowerCase() : '';
     const normCity = city ? city.trim().toLowerCase() : '';
     const continent = countryToContinent(normCountry);
+    console.log(continent,'CONTINENT--=======<<>>>>><<>>><<<>><<>>>><>>><<><<<><><><><<>><:>>><>');
 
     // Convert tags array to comma-separated string
     let tagsString = '';
@@ -132,7 +133,7 @@ exports.createPostV2 = async (req, res) => {
   }
 
   const {
-    // country, <-- REMOVE country from destructuring
+    country,
     visit_date,
     reason_for_visit,
     overall_rating,
@@ -156,16 +157,24 @@ exports.createPostV2 = async (req, res) => {
     // Parse city to extract country if present
     let normCity = city ? city.trim() : '';
     let normCountry = '';
-    if (normCity && normCity.includes(',')) {
+    
+    // First, try to use country from request body
+    if (country) {
+      normCountry = country.trim().toLowerCase();
+      console.log('Country from request body:', normCountry);
+    } else if (normCity && normCity.includes(',')) {
+      // Fallback: Parse country from city field (e.g., "city, country")
       const parts = normCity.split(',').map(s => s.trim());
       normCity = parts[0];
       normCountry = parts[1] || '';
+      normCountry = normCountry.toLowerCase();
+      console.log('Country parsed from city field:', normCountry);
     }
     normCity = normCity.toLowerCase();
-    normCountry = normCountry.toLowerCase();
 
     // Compute continent from country (if available)
     const continent = countryToContinent(normCountry);
+    console.log('Computed continent:', continent, 'for country:', normCountry);
 
     // Convert tags array to comma-separated string
     let tagsString = '';
