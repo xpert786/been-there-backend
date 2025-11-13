@@ -11,6 +11,7 @@ const Wishlist = models.Wishlist;
 const TopDestination = models.TopDestination;
 const Highlight = models.Highlight;
 const FlaggedContent = models.flaggedContent;
+const FollowRequest = models.FollowRequest;
 
 
 const countryToContinent = require('../utils/countryToContinent');
@@ -720,22 +721,50 @@ exports.searchUsers = async (req, res) => {
       attributes: ['id', 'full_name', 'email', 'image', 'address']
     });
 
-    // Get all follow records for current user
-    const following = await Follower.findAll({
-      where: { follower_id: currentUserId },
+    // Get user IDs from search results
+    const userIds = users.map(user => user.id);
+
+    // Check if logged-in user is following any of these users
+    const followingRecords = await Follower.findAll({
+      where: { 
+        follower_id: currentUserId,
+        user_id: { [Op.in]: userIds }
+      },
       attributes: ['user_id']
     });
-    const followingIds = new Set(following.map(f => f.user_id));
+    const followingIds = new Set(followingRecords.map(f => f.user_id));
 
-    // Map users with follow status
-    const result = users.map(user => ({
-      id: user.id,
-      full_name: user.full_name,
-      email: user.email,
-      image: user.image,
-      address: user.address,
-      isFollowed: followingIds.has(user.id)
-    }));
+    // Check if logged-in user has sent follow requests to any of these users
+    const followRequests = await FollowRequest.findAll({
+      where: { 
+        requester_id: currentUserId,
+        target_user_id: { [Op.in]: userIds },
+        status: 'pending'
+      },
+      attributes: ['target_user_id']
+    });
+    const pendingRequestIds = new Set(followRequests.map(req => req.target_user_id));
+
+    // Map users with follow status and status_type
+    const result = users.map(user => {
+      // Determine status_type
+      let status_type = 'no_follow';
+      if (followingIds.has(user.id)) {
+        status_type = 'followed';
+      } else if (pendingRequestIds.has(user.id)) {
+        status_type = 'req_sent';
+      }
+
+      return {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        image: user.image,
+        address: user.address,
+        isFollowed: followingIds.has(user.id),
+        status_type
+      };
+    });
 
     return apiResponse.SuccessResponseWithData(
       res,
