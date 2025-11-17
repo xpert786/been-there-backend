@@ -389,66 +389,66 @@ exports.likePost = async (req, res) => {
         });
         console.log('Liker:', liker ? liker.full_name : null);
 
-        const notificationTypes = postOwner.notification_type 
+        const notificationTypes = postOwner.notification_type
           ? postOwner.notification_type.toString().split(',').map(Number)
           : [];
         console.log('Post owner notification types:', notificationTypes);
 
-        if (notificationTypes.includes(3)) {
-          const message = `${liker.full_name || 'Someone'} liked your post.`;
-          console.log('Creating notification in DB with message:', message);
+        const message = liker && liker.full_name
+          ? liker.full_name.charAt(0).toUpperCase() + liker.full_name.slice(1)
+          : 'Someone';
+        const finalMessage = `${message} liked your post.`;
+        console.log('Creating notification in DB with message:', message);
 
-          const timestamp = Date.now();
-          const notification = await models.Notification.create({
-            user_id: postOwner.id,
-            notification_type: 3,
-            message,
-            reference_id: post_id,
-            is_read: false,
-            sender_id: user_id,
-            createdAt: timestamp,
-            updatedAt: timestamp
-          });
-          console.log('Notification DB entry created:', notification);
+        const timestamp = Date.now();
+        const notification = await models.Notification.create({
+          user_id: postOwner.id,
+          notification_type: 3,
+          message: finalMessage,
+          reference_id: post_id,
+          is_read: false,
+          sender_id: user_id,
+          createdAt: timestamp,
+          updatedAt: timestamp
+        });
+        console.log('Notification DB entry created:', notification);
 
-          // Send push notification
-          const fcmTokens = await models.FcmToken.findAll({
-            where: { 
-              user_id: postOwner.id
-            }
-          });
-          console.log('FCM tokens for post owner:', fcmTokens.map(t => t.token));
+        // Send push notification
+        const fcmTokens = await models.FcmToken.findAll({
+          where: {
+            user_id: postOwner.id
+          }
+        });
+        console.log('FCM tokens for post owner:', fcmTokens.map(t => t.token));
 
-          if (fcmTokens.length > 0) {
-            const tokens = fcmTokens.map(t => t.token).filter(Boolean);
-            try {
-              const sendResult = await sendNotification({
-                token: tokens,
-                notification: {
-                  title: 'New Like',
-                  body: message,
-                  ...(liker.image && { imageUrl: liker.image })
-                },
-                data: {
-                  type: '3',
-                  post_id: post_id.toString(),
-                  notification_id: notification.id.toString(),
-                  sender_id: user_id.toString(),
-                  timestamp: Date.now().toString(),
-                  click_action: 'FLUTTER_NOTIFICATION_CLICK'
-                }
-              });
-              console.log('Notification send result:', sendResult);
-            } catch (err) {
-              console.error('Notification send error:', err);
-              await handleFailedNotifications(err, tokens, postOwner.id);
-            }
-          } else {
-            console.log('No valid FCM tokens found for post owner.');
+        if (fcmTokens.length > 0) {
+          const tokens = fcmTokens.map(t => t.token).filter(Boolean);
+          try {
+            const sendResult = await sendNotification({
+              token: tokens,
+              notification: {
+                title: 'New Like',
+                body: message,
+                ...(liker.image && { imageUrl: liker.image })
+              },
+              data: {
+                type: '3',
+                post_id: post_id.toString(),
+                notification_id: notification.id.toString(),
+                sender_id: user_id.toString(),
+                timestamp: Date.now().toString(),
+                click_action: 'FLUTTER_NOTIFICATION_CLICK'
+              }
+            });
+            console.log('Notification send result:', sendResult);
+          } catch (err) {
+            console.error('Notification send error:', err);
+            await handleFailedNotifications(err, tokens, postOwner.id);
           }
         } else {
-          console.log('Post owner does not want like/comment notifications.');
+          console.log('No valid FCM tokens found for post owner.');
         }
+
       } else {
         console.log('User liked their own post, no notification sent.');
       }
@@ -514,67 +514,67 @@ exports.commentOnPost = async (req, res) => {
 
       // 3: like and comment
       const message = commenter && commenter.full_name
-      ? commenter.full_name.charAt(0).toUpperCase() + commenter.full_name.slice(1)
-      : 'Someone';
-    
-    const finalMessage = `${message} commented on your post.`;
-    
-    console.log('Creating notification in DB with message:', finalMessage);
+        ? commenter.full_name.charAt(0).toUpperCase() + commenter.full_name.slice(1)
+        : 'Someone';
 
-        // Store notification in DB
-        const timestamp = Date.now();
-        const notification = await models.Notification.create({
-          user_id: postOwner.id,
-          notification_type: 3,
-          message: finalMessage,
-          reference_id: postId,
-          is_read: false,
-          sender_id: userId,
-          createdAt: timestamp,
-          updatedAt: timestamp
-        });
-        console.log('Notification DB entry created:', notification);
+      const finalMessage = `${message} commented on your post.`;
 
-        // Send push notification
-        const fcmTokens = await models.FcmToken.findAll({
-          where: { 
-            user_id: postOwner.id
-          }
-        });
-        console.log('FCM tokens for post owner:', fcmTokens.map(t => t.token));
+      console.log('Creating notification in DB with message:', finalMessage);
 
-        if (fcmTokens.length > 0) {
-          const tokens = fcmTokens.map(t => t.token).filter(Boolean);
-          if (tokens.length > 0) {
-            try {
-              const sendResult = await sendNotification({
-                token: tokens,
-                notification: {
-                  title: 'New Comment',
-                  body: message,
-                  ...(commenter && commenter.image && { imageUrl: commenter.image })
-                },
-                data: {
-                  type: '3',
-                  post_id: postId.toString(),
-                  notification_id: notification.id.toString(),
-                  sender_id: userId.toString(),
-                  timestamp: Date.now().toString(),
-                  click_action: 'FLUTTER_NOTIFICATION_CLICK'
-                }
-              });
-              console.log('Notification send result:', sendResult);
-            } catch (err) {
-              console.error('Notification send error:', err);
-              await handleFailedNotifications(err, tokens, postOwner.id);
-            }
-          } else {
-            console.log('No valid FCM tokens found for post owner (all tokens were null/empty).');
+      // Store notification in DB
+      const timestamp = Date.now();
+      const notification = await models.Notification.create({
+        user_id: postOwner.id,
+        notification_type: 3,
+        message: finalMessage,
+        reference_id: postId,
+        is_read: false,
+        sender_id: userId,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      });
+      console.log('Notification DB entry created:', notification);
+
+      // Send push notification
+      const fcmTokens = await models.FcmToken.findAll({
+        where: {
+          user_id: postOwner.id
+        }
+      });
+      console.log('FCM tokens for post owner:', fcmTokens.map(t => t.token));
+
+      if (fcmTokens.length > 0) {
+        const tokens = fcmTokens.map(t => t.token).filter(Boolean);
+        if (tokens.length > 0) {
+          try {
+            const sendResult = await sendNotification({
+              token: tokens,
+              notification: {
+                title: 'New Comment',
+                body: message,
+                ...(commenter && commenter.image && { imageUrl: commenter.image })
+              },
+              data: {
+                type: '3',
+                post_id: postId.toString(),
+                notification_id: notification.id.toString(),
+                sender_id: userId.toString(),
+                timestamp: Date.now().toString(),
+                click_action: 'FLUTTER_NOTIFICATION_CLICK'
+              }
+            });
+            console.log('Notification send result:', sendResult);
+          } catch (err) {
+            console.error('Notification send error:', err);
+            await handleFailedNotifications(err, tokens, postOwner.id);
           }
         } else {
-          console.log('No FCM tokens found for post owner.');
+          console.log('No valid FCM tokens found for post owner (all tokens were null/empty).');
         }
-     
+      } else {
+        console.log('No FCM tokens found for post owner.');
+      }
+
     } else {
       console.log('User commented on their own post, no notification sent.');
     }
@@ -847,7 +847,7 @@ exports.getFollowers = async (req, res) => {
 
     // Check if logged-in user is following any of these followers back
     const followingRecords = await Follower.findAll({
-      where: { 
+      where: {
         follower_id: userId,
         user_id: { [Op.in]: followerIds }
       },
@@ -857,7 +857,7 @@ exports.getFollowers = async (req, res) => {
 
     // Check if logged-in user has sent follow requests to any of these followers
     const followRequests = await FollowRequest.findAll({
-      where: { 
+      where: {
         requester_id: userId,
         target_user_id: { [Op.in]: followerIds },
         status: 'pending'
