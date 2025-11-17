@@ -513,7 +513,6 @@ exports.commentOnPost = async (req, res) => {
       console.log('Post owner notification types:', notificationTypes);
 
       // 3: like and comment
-      if (notificationTypes.includes(3)) {
         const message = `${commenter ? commenter.full_name : 'Someone'} commented on your post.`;
         console.log('Creating notification in DB with message:', message);
 
@@ -570,9 +569,7 @@ exports.commentOnPost = async (req, res) => {
         } else {
           console.log('No FCM tokens found for post owner.');
         }
-      } else {
-        console.log('Post owner does not want like/comment notifications.');
-      }
+     
     } else {
       console.log('User commented on their own post, no notification sent.');
     }
