@@ -394,7 +394,12 @@ exports.likePost = async (req, res) => {
           : [];
         console.log('Post owner notification types:', notificationTypes);
 
-        if (notificationTypes.includes(3)) {
+        // Check if user wants notifications: 0 = all notifications, 3 = like/comment
+        // Use shouldSendNotification helper for consistent logic
+        const shouldSend = shouldSendNotification(postOwner.notification_type, 3);
+        console.log('Should send notification:', shouldSend);
+        
+        if (shouldSend) {
           const message = `${liker.full_name || 'Someone'} liked your post.`;
           console.log('Creating notification in DB with message:', message);
 
@@ -512,8 +517,12 @@ exports.commentOnPost = async (req, res) => {
         : [];
       console.log('Post owner notification types:', notificationTypes);
 
-      // 3: like and comment
-      if (notificationTypes.includes(3)) {
+      // Check if user wants notifications: 0 = all notifications, 3 = like/comment
+      // Use shouldSendNotification helper for consistent logic
+      const shouldSend = shouldSendNotification(postOwner.notification_type, 3);
+      console.log('Should send notification:', shouldSend);
+      
+      if (shouldSend) {
         const message = `${commenter ? commenter.full_name : 'Someone'} commented on your post.`;
         console.log('Creating notification in DB with message:', message);
 
