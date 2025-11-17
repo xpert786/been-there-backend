@@ -513,15 +513,20 @@ exports.commentOnPost = async (req, res) => {
       console.log('Post owner notification types:', notificationTypes);
 
       // 3: like and comment
-        const message = `${commenter ? commenter.full_name : 'Someone'} commented on your post.`;
-        console.log('Creating notification in DB with message:', message);
+      const message = commenter && commenter.full_name
+      ? commenter.full_name.charAt(0).toUpperCase() + commenter.full_name.slice(1)
+      : 'Someone';
+    
+    const finalMessage = `${message} commented on your post.`;
+    
+    console.log('Creating notification in DB with message:', finalMessage);
 
         // Store notification in DB
         const timestamp = Date.now();
         const notification = await models.Notification.create({
           user_id: postOwner.id,
           notification_type: 3,
-          message,
+          message: finalMessage,
           reference_id: postId,
           is_read: false,
           sender_id: userId,
