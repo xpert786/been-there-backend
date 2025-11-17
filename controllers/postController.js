@@ -10,7 +10,7 @@ const User = models.User;
 const Wishlist = models.Wishlist;
 const TopDestination = models.TopDestination;
 const Highlight = models.Highlight;
-const FlaggedContent = models.flaggedContent;
+const FlaggedContent = models.FlaggedContent;
 const FollowRequest = models.FollowRequest;
 
 
