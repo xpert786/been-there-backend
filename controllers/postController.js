@@ -776,6 +776,3 @@ exports.searchUsers = async (req, res) => {
     return apiResponse.InternalServerError(res, error);
   }
 }
-
-
-

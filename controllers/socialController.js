@@ -469,6 +469,7 @@ exports.commentOnPost = async (req, res) => {
 
   try {
     const userId = req.user.id;
+    console.log('commentOnPost called by user:', userId, 'for post:', postId);
 
     // Fetch post with owner (User) information
     const post = await Post.findByPk(postId, {
@@ -478,11 +479,21 @@ exports.commentOnPost = async (req, res) => {
       }]
     });
     if (!post) {
+      console.log('Post not found:', postId);
       return apiResponse.NotFound(res, "Post not found.");
     }
 
     // Access the user through the automatically generated association
     const postOwner = post.User;
+    console.log('Post owner:', postOwner ? postOwner.id : null);
+
+    if (!postOwner) {
+      console.error('Post owner not found');
+      await Comment.create({ post_id: postId, user_id: userId, comment });
+      post.comment_count += 1;
+      await post.save();
+      return apiResponse.SuccessResponseWithOutData(res, "Comment added successfully.");
+    }
 
     await Comment.create({ post_id: postId, user_id: userId, comment });
 
@@ -490,17 +501,21 @@ exports.commentOnPost = async (req, res) => {
     await post.save();
 
     // --- Notification logic ---
-    if (postOwner && userId !== postOwner.id) {
+    if (userId !== postOwner.id) {
       const commenter = await User.findByPk(userId, {
         attributes: ['id', 'full_name', 'image']
       });
+      console.log('Commenter:', commenter ? commenter.full_name : null);
 
       const notificationTypes = postOwner.notification_type
         ? postOwner.notification_type.toString().split(',').map(Number)
         : [];
+      console.log('Post owner notification types:', notificationTypes);
+
       // 3: like and comment
       if (notificationTypes.includes(3)) {
-        const message = `${commenter.full_name || 'Someone'} commented on your post.`;
+        const message = `${commenter ? commenter.full_name : 'Someone'} commented on your post.`;
+        console.log('Creating notification in DB with message:', message);
 
         // Store notification in DB
         const timestamp = Date.now();
@@ -514,41 +529,57 @@ exports.commentOnPost = async (req, res) => {
           createdAt: timestamp,
           updatedAt: timestamp
         });
+        console.log('Notification DB entry created:', notification);
 
         // Send push notification
         const fcmTokens = await models.FcmToken.findAll({
-          where: { user_id: postOwner.id }
+          where: { 
+            user_id: postOwner.id
+          }
         });
+        console.log('FCM tokens for post owner:', fcmTokens.map(t => t.token));
+
         if (fcmTokens.length > 0) {
           const tokens = fcmTokens.map(t => t.token).filter(Boolean);
-          try {
-            await sendNotification({
-              token: tokens,
-              notification: {
-                title: 'New Comment',
-                body: message,
-                ...(commenter.image && { imageUrl: commenter.image })
-              },
-              data: {
-                type: '3',
-                post_id: postId.toString(),
-                notification_id: notification.id.toString(),
-                sender_id: userId.toString(),
-                timestamp: Date.now().toString(),
-                click_action: 'FLUTTER_NOTIFICATION_CLICK'
-              }
-            });
-          } catch (err) {
-            console.error('Notification send error:', err);
-            await handleFailedNotifications(err, tokens, postOwner.id);
+          if (tokens.length > 0) {
+            try {
+              const sendResult = await sendNotification({
+                token: tokens,
+                notification: {
+                  title: 'New Comment',
+                  body: message,
+                  ...(commenter && commenter.image && { imageUrl: commenter.image })
+                },
+                data: {
+                  type: '3',
+                  post_id: postId.toString(),
+                  notification_id: notification.id.toString(),
+                  sender_id: userId.toString(),
+                  timestamp: Date.now().toString(),
+                  click_action: 'FLUTTER_NOTIFICATION_CLICK'
+                }
+              });
+              console.log('Notification send result:', sendResult);
+            } catch (err) {
+              console.error('Notification send error:', err);
+              await handleFailedNotifications(err, tokens, postOwner.id);
+            }
+          } else {
+            console.log('No valid FCM tokens found for post owner (all tokens were null/empty).');
           }
+        } else {
+          console.log('No FCM tokens found for post owner.');
         }
+      } else {
+        console.log('Post owner does not want like/comment notifications.');
       }
+    } else {
+      console.log('User commented on their own post, no notification sent.');
     }
 
     return apiResponse.SuccessResponseWithOutData(res, "Comment added successfully.");
   } catch (error) {
-    console.error(error);
+    console.error('Error in commentOnPost:', error);
     return apiResponse.InternalServerError(res, error);
   }
 };
