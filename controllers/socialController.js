@@ -1089,3 +1089,84 @@ async function handleFailedNotifications(error, tokens, user_id) {
     console.log(`Marked ${invalidTokens.length} invalid FCM tokens`);
   }
 }
+
+exports.sendMessageNotification = async (req, res) => {
+  try {
+    const { recipient_id, chatid, message } = req.body;
+    const senderId = req.user?.id;
+
+    // Validate required fields
+    if (!recipient_id) {
+      return apiResponse.ValidationError(res, 'Recipient ID is required');
+    }
+    if (!message) {
+      return apiResponse.ValidationError(res, 'Message is required');
+    }
+
+    // Fetch recipient user
+    const recipient = await User.findByPk(recipient_id, {
+      attributes: ['id', 'full_name', 'image', 'notification_type']
+    });
+
+    if (!recipient) {
+      return apiResponse.NotFound(res, 'Recipient user not found');
+    }
+
+    // Fetch sender user for notification details
+    const sender = senderId ? await User.findByPk(senderId, {
+      attributes: ['id', 'full_name', 'image']
+    }) : null;
+
+    // Fetch FCM tokens for recipient
+    const fcmTokens = await models.FcmToken.findAll({
+      where: { user_id: recipient_id }
+    });
+
+    const tokens = fcmTokens.map(t => t.token).filter(Boolean);
+
+    if (tokens.length === 0) {
+      return apiResponse.SuccessResponseWithData(res, 'No FCM tokens found for recipient', {
+        sent: false,
+        reason: 'No FCM tokens available'
+      });
+    }
+
+    // Prepare notification message
+    const notificationTitle = sender && sender.full_name 
+      ? sender.full_name 
+      : 'New Message';
+    const notificationBody = message;
+
+    // Send push notification
+    try {
+      await sendNotification({
+        token: tokens,
+        notification: {
+          title: notificationTitle,
+          body: notificationBody,
+          ...(sender && sender.image && { imageUrl: sender.image })
+        },
+        data: {
+          type: '2',
+          message: message,
+          ...(chatid && { chatid: chatid.toString() }),
+          ...(senderId && { sender_id: senderId.toString() }),
+          timestamp: Date.now().toString(),
+          click_action: 'FLUTTER_NOTIFICATION_CLICK'
+        }
+      });
+
+      return apiResponse.SuccessResponseWithData(res, 'Message notification sent successfully', {
+        sent: true,
+        recipient_id: recipient_id
+      });
+    } catch (err) {
+      console.error('Notification send error:', err);
+      await handleFailedNotifications(err, tokens, recipient_id);
+      return apiResponse.InternalServerError(res, 'Failed to send notification: ' + err.message);
+    }
+  } catch (error) {
+    console.error('Error sending message notification:', error);
+    return apiResponse.InternalServerError(res, error);
+  }
+}

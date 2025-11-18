@@ -479,5 +479,34 @@ router.get('/social/following', socialController.getFollowing);
  *         description: Internal server error
  */
 router.get('/users/status', socialController.getAllUsersWithFollowStatus);
+//make a send message notification route
+router.post('/send-message-notification', socialController.sendMessageNotification);
+/**
+ * @swagger
+ * /send-message-notification:
+ *   post:
+ *     summary: Send a message notification
+ *     tags: [Social]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               user_id:
+ *                 type: string
+ *                 description: The ID of the user to send the notification to
+ *               message:
+ *                 type: string
+ *                 description: The message to send
+ *     responses:
+ *       200:
+ *         description: Message notification sent successfully
+ *       500:
+ *         description: Internal server error
+ */ 
 
 module.exports = router;
