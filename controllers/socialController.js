@@ -429,7 +429,7 @@ exports.likePost = async (req, res) => {
               notification: {
                 title: 'New Like',
                 body: finalMessage,
-                ...(liker.image && { imageUrl: liker.image })
+                
               },
               data: {
                 type: '3',
@@ -552,7 +552,6 @@ exports.commentOnPost = async (req, res) => {
               notification: {
                 title: 'New Comment',
                 body: finalMessage,
-                ...(commenter && commenter.image && { imageUrl: commenter.image })
               },
               data: {
                 type: '3',
@@ -1046,7 +1045,6 @@ async function maybeSendFollowNotification({ type, recipient, actor, message, da
       notification: {
         title: getNotificationTitle(type),
         body: message,
-        ...(actor && actor.image && { imageUrl: actor.image })
       },
       data: {
         ...data,
@@ -1144,7 +1142,6 @@ exports.sendMessageNotification = async (req, res) => {
         notification: {
           title: notificationTitle,
           body: notificationBody,
-          ...(sender && sender.image && { imageUrl: sender.image })
         },
         data: {
           type: '2',
