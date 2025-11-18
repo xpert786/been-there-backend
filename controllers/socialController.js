@@ -176,7 +176,7 @@ exports.followUser = async (req, res) => {
     console.error("Follow request error:", error);
     return apiResponse.InternalServerError(res, error.message || "Something went wrong.");
   }
-};
+};  
 
 exports.getFollowRequests = async (req, res) => {
   try {
@@ -428,7 +428,7 @@ exports.likePost = async (req, res) => {
               token: tokens,
               notification: {
                 title: 'New Like',
-                body: message,
+                body: finalMessage,
                 ...(liker.image && { imageUrl: liker.image })
               },
               data: {
@@ -551,7 +551,7 @@ exports.commentOnPost = async (req, res) => {
               token: tokens,
               notification: {
                 title: 'New Comment',
-                body: message,
+                body: finalMessage,
                 ...(commenter && commenter.image && { imageUrl: commenter.image })
               },
               data: {
