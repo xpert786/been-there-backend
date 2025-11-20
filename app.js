@@ -23,6 +23,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static pages
+app.use(express.static('public'));
+
+// About page route
+app.get('/about-been-around', (req, res) => {
+  res.sendFile(__dirname + '/public/about-been-around.html');
+});
+
 // ====================
 // 📘 Swagger Docs
 // ====================
