@@ -54,11 +54,11 @@ module.exports = (sequelize, DataTypes) => {
     },
     createdAt: {
       type: DataTypes.BIGINT,
-      defaultValue: moment().valueOf()
+      defaultValue: () => moment().valueOf()
     },
     updatedAt: {
       type: DataTypes.BIGINT,
-      defaultValue: moment().valueOf()
+      defaultValue: () => moment().valueOf()
     },
     tags: {
       type: DataTypes.STRING,
