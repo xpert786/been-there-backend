@@ -55,8 +55,25 @@ module.exports = ( sequelize, DataTypes ) =>
       type: DataTypes.UUID,
       allowNull: false
     },
-    createdAt: DataTypes.BIGINT,
-    updatedAt: DataTypes.BIGINT,
+   // Keep these as BIGINT
+    createdAt: {
+      type: DataTypes.BIGINT,
+      // Add a getter to convert BIGINT to a readable date
+      get ()
+      {
+        const timestamp = this.getDataValue( 'createdAt' );
+        return timestamp ? moment( Number( timestamp ) ) : null;
+      }
+    },
+    updatedAt: {
+      type: DataTypes.BIGINT,
+      // Add a getter to convert BIGINT to a readable date
+      get ()
+      {
+        const timestamp = this.getDataValue( 'updatedAt' );
+        return timestamp ? moment( Number( timestamp ) ) : null;
+      }
+    },
     tags: {
       type: DataTypes.STRING,
       allowNull: true
@@ -68,7 +85,21 @@ module.exports = ( sequelize, DataTypes ) =>
   }, {
     sequelize,
     modelName: 'Post',
-    timestamps: true
+    timestamps: true,
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt',
+    hooks: {
+      beforeCreate: ( post, options ) =>
+      {
+        const now = Date.now();
+        post.createdAt = now;
+        post.updatedAt = now;
+      },
+      beforeUpdate: ( post, options ) =>
+      {
+        post.updatedAt = Date.now();
+      }
+    }
   } );
   return Post;
 };
