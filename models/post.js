@@ -52,14 +52,6 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: false
     },
-    createdAt: {
-      type: DataTypes.BIGINT,
-      defaultValue: () => moment().valueOf()
-    },
-    updatedAt: {
-      type: DataTypes.BIGINT,
-      defaultValue: () => moment().valueOf()
-    },
     tags: {
       type: DataTypes.STRING,
       allowNull: true
@@ -67,11 +59,31 @@ module.exports = (sequelize, DataTypes) => {
     place_type: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+      // ⚡ Add millisecond timestamps
+    createdAt: {
+      type: DataTypes.BIGINT,
+    },
+    updatedAt: {
+      type: DataTypes.BIGINT,
     }
   }, {
     sequelize,
-    modelName: 'Post',
-    timestamps: true
+   timestamps: true, 
+    modelName: 'Post'
   });
+
+    // ⚡ Set timestamps in milliseconds before create
+  Post.beforeCreate((post) => {
+    const now = Date.now();
+    post.createdAt = now;
+    post.updatedAt = now;
+  });
+
+  // ⚡ Update timestamp in milliseconds before update
+  Post.beforeUpdate((post) => {
+    post.updatedAt = Date.now();
+  });
+
   return Post;
 };
