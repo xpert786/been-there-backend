@@ -70,9 +70,7 @@ exports.createPost = async (req, res) => {
       longitude,
       latitude,
       user_id,
-      tags: tagsString, // <-- save tags string
-      createdAt: now,
-      updatedAt: now
+      tags: tagsString // <-- save tags string
     });
 
     // --- Upload Photos to S3 ---

@@ -1,16 +1,19 @@
 'use strict';
-const { Model } = require('sequelize');
-const moment = require('moment');
-module.exports = (sequelize, DataTypes) => {
-  class Post extends Model {
-    static associate(models) {
-      Post.belongsTo(models.User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
-      Post.hasMany(models.Photo, { foreignKey: 'post_id', onDelete: 'CASCADE' });
-      Post.hasMany(models.Wishlist, { foreignKey: 'post_id', onUpdate: 'CASCADE', onDelete: 'CASCADE' });
-      Post.hasMany(models.Like, { foreignKey: 'post_id', onDelete: 'CASCADE' });
+const { Model } = require( 'sequelize' );
+const moment = require( 'moment' );
+module.exports = ( sequelize, DataTypes ) =>
+{
+  class Post extends Model
+  {
+    static associate ( models )
+    {
+      Post.belongsTo( models.User, { foreignKey: 'user_id', onDelete: 'CASCADE' } );
+      Post.hasMany( models.Photo, { foreignKey: 'post_id', onDelete: 'CASCADE' } );
+      Post.hasMany( models.Wishlist, { foreignKey: 'post_id', onUpdate: 'CASCADE', onDelete: 'CASCADE' } );
+      Post.hasMany( models.Like, { foreignKey: 'post_id', onDelete: 'CASCADE' } );
     }
   }
-  Post.init({
+  Post.init( {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
@@ -18,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     country: DataTypes.STRING,
     city: DataTypes.STRING,
-    continent: DataTypes.STRING, 
+    continent: DataTypes.STRING,
     longitude: DataTypes.STRING,
     latitude: DataTypes.STRING,
     visit_date: DataTypes.DATE,
@@ -52,6 +55,8 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: false
     },
+    createdAt: DataTypes.BIGINT,
+    updatedAt: DataTypes.BIGINT,
     tags: {
       type: DataTypes.STRING,
       allowNull: true
@@ -64,6 +69,6 @@ module.exports = (sequelize, DataTypes) => {
     sequelize,
     modelName: 'Post',
     timestamps: true
-  });
+  } );
   return Post;
 };
