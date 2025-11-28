@@ -59,31 +59,11 @@ module.exports = (sequelize, DataTypes) => {
     place_type: {
       type: DataTypes.STRING,
       allowNull: true
-    },
-      // ⚡ Add millisecond timestamps
-    createdAt: {
-      type: DataTypes.BIGINT,
-    },
-    updatedAt: {
-      type: DataTypes.BIGINT,
     }
   }, {
     sequelize,
-   timestamps: true, 
-    modelName: 'Post'
+    modelName: 'Post',
+    timestamps: true
   });
-
-    // ⚡ Set timestamps in milliseconds before create
-  Post.beforeCreate((post) => {
-    const now = Date.now();
-    post.createdAt = now;
-    post.updatedAt = now;
-  });
-
-  // ⚡ Update timestamp in milliseconds before update
-  Post.beforeUpdate((post) => {
-    post.updatedAt = Date.now();
-  });
-
   return Post;
 };
