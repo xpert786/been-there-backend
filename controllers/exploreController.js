@@ -115,45 +115,60 @@ const exploreController = {
 
             // Split location into keywords and build LIKE queries (MariaDB: use LOWER + LIKE)
             const keywords = location ? location.split(' ').filter(Boolean) : [];
+            
+            // Define the base location query (Required for all searches)
             const locationQuery = {
                 [Op.or]: keywords.map(keyword => ({
                     [Op.or]: [
                         models.sequelize.where(
-                            models.sequelize.fn('LOWER', models.sequelize.col('continent')),
+                            models.sequelize.fn('LOWER', models.sequelize.col('Post.continent')), // Use Post.continent for clarity
                             { [Op.like]: `%${keyword.toLowerCase()}%` }
                         ),
                         models.sequelize.where(
-                            models.sequelize.fn('LOWER', models.sequelize.col('country')),
+                            models.sequelize.fn('LOWER', models.sequelize.col('Post.country')),
                             { [Op.like]: `%${keyword.toLowerCase()}%` }
                         ),
                         models.sequelize.where(
-                            models.sequelize.fn('LOWER', models.sequelize.col('city')),
+                            models.sequelize.fn('LOWER', models.sequelize.col('Post.city')),
                             { [Op.like]: `%${keyword.toLowerCase()}%` }
                         )
                     ]
                 }))
             };
 
-            // Build user filter based on followed parameter
-            let userFilter = {};
-            if (followed === '1') {
-                userFilter = { id: { [Op.in]: followingIds } };
-            } else if (followed === '0') {
-                userFilter = { id: { [Op.notIn]: [...followingIds, user_id] } };
+            // 1. Build the Post WHERE clause (Location + Recent Time)
+            let postWhere = locationQuery;
+            if (recent === '1') {
+                // If recent=1, filter posts created within the last 24 hours
+                const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                postWhere = {
+                    ...postWhere,
+                    createdAt: { [Op.gte]: twentyFourHoursAgo }
+                };
             }
 
-            // Build order clause for recent filter
+            // 2. Build the User WHERE clause (Followed filter)
+            let userFilter = undefined;
+            if (followed === '1') {
+                // If followed=1, show only posts from users the current user is following
+                userFilter = { id: { [Op.in]: followingIds } };
+            }
+            // If followed=0 (and recent=0), the user requested to show ALL posts, so we leave userFilter as undefined,
+            // which results in no user-level filtering in the INCLUDE block.
+
+            // 3. Build the Order Clause
             const orderClause = recent === '1' ? [['createdAt', 'DESC']] : [];
+
 
             // Find posts with the specified location and filters
             const posts = await Post.findAll({
-                where: locationQuery,
+                where: postWhere, // Includes location and optional 24h time filter
                 include: [
                     {
                         model: User,
-                        where: userFilter,
+                        where: userFilter, // Only applied if followed=1
                         attributes: ['id', 'full_name', 'image'],
-                        required: true
+                        required: true // Ensures only posts with users are returned
                     },
                     {
                         model: Photo,
@@ -163,15 +178,15 @@ const exploreController = {
                 order: orderClause
             });
 
-            // Get all photos for the location separately
+            // Get all photos for the location separately (applying the same filters for consistency)
             const locationPhotos = await Photo.findAll({
                 include: [{
                     model: Post,
-                    where: locationQuery,
+                    where: postWhere, // Use the same post filters
                     required: true,
                     include: [{
                         model: User,
-                        where: userFilter,
+                        where: userFilter, // Use the same user filters
                         required: true
                     }]
                 }]
@@ -191,12 +206,13 @@ const exploreController = {
                 locationPhotos: locationPhotos.map(photo => ({
                     id: photo.id,
                     url: photo.image_url,
-                    postId: photo.PostId
+                    postId: photo.Post.id // Access Post ID from the included Post model
                 }))
             });
 
         } catch (error) {
             console.error('Error in searchByLocationFiltered:', error);
+            // Ensure apiResponse and Op are defined/imported correctly in the surrounding context
             return apiResponse.InternalServerError(res, error);
         }
     }
