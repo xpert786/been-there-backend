@@ -53,7 +53,7 @@ exports.createPost = async (req, res) => {
     } else if (typeof tags === 'string') {
       tagsString = tags;
     }
-
+ const now = Date.now();
     // Create the post
     const newPost = await Post.create({
       country,
@@ -70,7 +70,9 @@ exports.createPost = async (req, res) => {
       longitude,
       latitude,
       user_id,
-      tags: tagsString // <-- save tags string
+      tags: tagsString, // <-- save tags string
+      createdAt: now,
+      updatedAt: now
     });
 
     // --- Upload Photos to S3 ---
