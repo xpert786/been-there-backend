@@ -53,7 +53,7 @@ exports.createPost = async (req, res) => {
     } else if (typeof tags === 'string') {
       tagsString = tags;
     }
- const now = Date.now();
+
     // Create the post
     const newPost = await Post.create({
       country,
@@ -71,9 +71,9 @@ exports.createPost = async (req, res) => {
       latitude,
       user_id,
       tags: tagsString, // <-- save tags string
-      createdAt: now,
-      updatedAt: now
+      
     });
+    
 
     // --- Upload Photos to S3 ---
     if (req.files && req.files.length > 0) {
@@ -150,6 +150,7 @@ exports.createPostV2 = async (req, res) => {
     city,
     tags,
     instagram_photos // array of strings
+
   } = req.body;
 
 
@@ -186,7 +187,7 @@ exports.createPostV2 = async (req, res) => {
     } else if (typeof tags === 'string') {
       tagsString = tags;
     }
-
+ const now = Date.now();
     // Create the post
     const newPost = await Post.create({
       country: normCountry, // set from parsed value
@@ -203,7 +204,9 @@ exports.createPostV2 = async (req, res) => {
       longitude,
       latitude,
       user_id,
-      tags: tagsString
+      tags: tagsString,
+      createdAt: now,
+      updatedAt: now
     });
 
     // --- Upload Photos to S3 from files ---
