@@ -13,8 +13,8 @@ const userBlockRoutes = require('./userBlock');
 
 // Use auth routes
 router.use('/auth', authRoute);
-router.use('/api/admin', adminAuthRoute);
-router.use('/api', adminRoute);
+router.use('/admin', adminAuthRoute);
+router.use(adminRoute);
 router.use(reviewRoute);
 router.use(socialRoute);
 router.use('/explore', exploreRoute);

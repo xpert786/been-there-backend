@@ -5,18 +5,19 @@ const jwt = require('jsonwebtoken');
 
 // Admin user login
 exports.loginAdminUser = async (req, res) => {
+  console.log('test it')
   try {
     console.log('Login attempt with body:', req.body);
     const { email, password } = req.body;
     if (!email || !password) {
       return apiResponse.ValidationError(res, 'Email and password are required');
     }
-console.log('Email:')
+    console.log('Email:')
     const adminUser = await models.AdminUser.findOne({ where: { email } });
     if (!adminUser) {
       return apiResponse.UnAuthorized(res, 'Invalid email or password');
     }
-console.log('Admin user found:', adminUser.id);
+    console.log('Admin user found:', adminUser.id);
     const isMatch = await bcrypt.compare(password, adminUser.password);
     if (!isMatch) {
       return apiResponse.UnAuthorized(res, 'Invalid email or password');
@@ -29,7 +30,7 @@ console.log('Admin user found:', adminUser.id);
       process.env.SECRETKEY,
       { expiresIn: '7d' }
     );
-console.log('JWT token generated for admin user:', adminUser.id);
+    console.log('JWT token generated for admin user:', adminUser.id);
     // Do not return password
     const { password: _, ...adminUserData } = adminUser.toJSON();
 
