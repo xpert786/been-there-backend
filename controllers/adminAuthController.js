@@ -34,6 +34,16 @@ exports.loginAdminUser = async (req, res) => {
     // Do not return password
     const { password: _, ...adminUserData } = adminUser.toJSON();
 
+        // ⬇️ ⬇️ ⬇️ IMPORTANT COOKIE SETUP ⬇️ ⬇️ ⬇️
+    res.cookie("admin_token", token, {
+      httpOnly: true,
+      secure: true,               // Required on HTTPS
+      sameSite: "none",           // Required for cross-domain cookies
+      domain: ".beenaround.app",  // Allows sharing between subdomains
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
     return apiResponse.SuccessResponseWithData(res, 'Admin login successful', {
       token,
       admin: adminUserData
