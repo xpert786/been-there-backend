@@ -25,6 +25,7 @@ app.use(
       const allowedOrigins = [
         "http://localhost:3000",
         "https://admin.beenaround.app",
+        "https://www.admin.beenaround.app",
       ];
 
       if (!origin || allowedOrigins.includes(origin)) {
