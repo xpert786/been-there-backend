@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocs = require('./swagger/swaggerOptions');
-const cookieParser = require("cookie-parser");
 require('dotenv').config();
 
 // Validate required environment variables
@@ -35,10 +34,8 @@ app.use(
         callback(new Error("CORS blocked"));
       }
     },
-    credentials: true,
   })
 );
-app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
