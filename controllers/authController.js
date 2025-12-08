@@ -44,7 +44,7 @@ exports.register = async (req, res) => {
     const token = jwt.sign(
       { id: newUser.id, email: newUser.email },
       process.env.SECRETKEY || 'default_secret_key',
-      { algorithm: 'HS256', expiresIn: '1d' }
+      { algorithm: 'HS256', expiresIn: '7d' }
     );
 
     return apiResponse.SuccessResponseWithToken(res, token, 'User registered successfully', {
@@ -84,7 +84,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.SECRETKEY || 'default_secret_key', 
-      { algorithm: 'HS256', expiresIn: '1d' }
+      { algorithm: 'HS256', expiresIn: '7d' }
     );
 
     return apiResponse.SuccessResponseWithToken(res, token, 'Login successful', {
