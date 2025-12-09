@@ -113,39 +113,73 @@ const exploreController = {
         });
         const followingIds = followingRows.map(row => row.user_id);
 
-        // Split keywords
-        const keywords = location ? location.split(" ").filter(Boolean) : [];
+        // Parse location - handle comma-separated format (e.g., "miami" or "miami,US")
+        let cityName = '';
+        let countryName = '';
+        
+        if (location) {
+            // Split by comma and trim each part
+            const parts = location.split(',').map(part => part.trim()).filter(Boolean);
+            
+            if (parts.length > 0) {
+                cityName = parts[0].toLowerCase();
+                // If multiple parts, last part is country (e.g., "miami,FL,US" -> country is "US")
+                if (parts.length > 1) {
+                    countryName = parts[parts.length - 1].toLowerCase();
+                }
+            }
+        }
 
-        // Location filters
-        const locationQuery = keywords.length > 0 ? {
-            [Op.or]: keywords.map(keyword => ({
-                [Op.or]: [
+        // If no location provided, return empty results
+        if (!location || !cityName) {
+            return apiResponse.SuccessResponseWithData(
+                res,
+                "Filtered posts fetched successfully",
+                {
+                    posts: [],
+                    locationPhotos: []
+                }
+            );
+        }
+
+        // Build location query based on what's provided
+        let locationQuery = {};
+        
+        if (cityName && countryName) {
+            // Both city and country provided - match BOTH conditions
+            locationQuery = {
+                [Op.and]: [
                     models.sequelize.where(
-                        models.sequelize.fn('LOWER', models.sequelize.col('Post.continent')),
-                        { [Op.like]: `%${keyword.toLowerCase()}%` }
+                        models.sequelize.fn('LOWER', models.sequelize.col('Post.city')),
+                        { [Op.like]: `%${cityName}%` }
                     ),
                     models.sequelize.where(
                         models.sequelize.fn('LOWER', models.sequelize.col('Post.country')),
-                        { [Op.like]: `%${keyword.toLowerCase()}%` }
-                    ),
-                    models.sequelize.where(
-                        models.sequelize.fn('LOWER', models.sequelize.col('Post.city')),
-                        { [Op.like]: `%${keyword.toLowerCase()}%` }
+                        { [Op.like]: `%${countryName}%` }
                     )
                 ]
-            }))
-        } : {};
+            };
+        } else if (cityName) {
+            // Only city provided - search by city only
+            locationQuery = {
+                [Op.and]: [
+                    models.sequelize.where(
+                        models.sequelize.fn('LOWER', models.sequelize.col('Post.city')),
+                        { [Op.like]: `%${cityName}%` }
+                    )
+                ]
+            };
+        }
 
-        // MAIN WHERE
+        // Build query with additional filters (recent, followed)
         let postWhere = { ...locationQuery };
 
         // If recent=1 -> show ONLY last 24 hours posts
         if (recent === "1") {
             const oneDayAgoMs = Date.now() - 24 * 60 * 60 * 1000;
-
             postWhere = {
                 ...postWhere,
-                createdAt: { [Op.gte]: oneDayAgoMs }   // Using MS directly
+                createdAt: { [Op.gte]: oneDayAgoMs }
             };
         }
 
@@ -160,16 +194,21 @@ const exploreController = {
         // Order
         const orderClause = recent === "1" ? [["createdAt", "DESC"]] : [];
 
+        // Build user include conditionally
+        const userInclude = {
+            model: User,
+            required: true,
+            attributes: ['id', 'full_name', 'image']
+        };
+        if (userFilter) {
+            userInclude.where = userFilter;
+        }
+
         // Fetch posts
         const posts = await Post.findAll({
             where: postWhere,
             include: [
-                {
-                    model: User,
-                    where: userFilter,
-                    required: true,
-                    attributes: ['id', 'full_name', 'image']
-                },
+                userInclude,
                 {
                     model: Photo,
                     attributes: ['id', 'image_url']
@@ -179,19 +218,26 @@ const exploreController = {
         });
 
         // Fetch location photos with same filters
+        const postInclude = {
+            model: Post,
+            where: postWhere,
+            required: true,
+            include: [userInclude]
+        };
+
         const locationPhotos = await Photo.findAll({
-            include: [{
-                model: Post,
-                where: postWhere,
-                required: true,
-                include: [{
-                    model: User,
-                    where: userFilter,
-                    required: true
-                }]
-            }]
+            include: [postInclude]
         });
 
+        // If no results found, return not found message
+        if (posts.length === 0 && locationPhotos.length === 0) {
+            return apiResponse.NotFound(
+                res,
+                "No posts found for the specified location"
+            );
+        }
+
+        // Process and return results
         const processedPosts = posts.map(post => ({
             ...post.toJSON(),
             isFollowing: followingIds.includes(post.User.id)
