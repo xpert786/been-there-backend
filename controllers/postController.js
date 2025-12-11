@@ -521,20 +521,47 @@ exports.getUserDetails = async (req, res) => {
       return apiResponse.NotFound(res, "User not found");
     }
 
+    // Check if current user is the owner of the profile being viewed
+    const isOwner = currentUserId === userId;
+
+    // Check follow status and pending requests (only if not owner)
+    let status_type = null;
+    let followState = null;
+
+    if (!isOwner) {
+      // Check if current user is following the profile user
+      const isFollowing = await Follower.findOne({
+        where: { user_id: userId, follower_id: currentUserId }
+      });
+
+      // Check if there's a pending follow request
+      const pendingRequest = await FollowRequest.findOne({
+        where: {
+          requester_id: currentUserId,
+          target_user_id: userId,
+          status: 'pending'
+        }
+      });
+
+      // Determine status_type
+      if (isFollowing) {
+        status_type = 'followed';
+        followState = "following";
+      } else if (pendingRequest) {
+        status_type = 'req_sent';
+        followState = "follow";
+      } else {
+        status_type = 'no_follow';
+        followState = "follow";
+      }
+    }
+
     // Check for public profile sharing
     if (user.public_profile === false) {
       // Only show minimal profile info
       const totalPosts = await Post.count({ where: { user_id: userId } });
       const totalFollowers = await Follower.count({ where: { user_id: userId } });
       const totalFollowing = await Follower.count({ where: { follower_id: userId } });
-
-      // Determine follow button state
-      const isOwner = currentUserId === userId;
-      const followState = isOwner ? null : (
-        await Follower.findOne({ where: { user_id: userId, follower_id: currentUserId } })
-          ? "following"
-          : "follow"
-      );
 
       return apiResponse.SuccessResponseWithData(res, "User profile is private", {
         user: {
@@ -548,6 +575,7 @@ exports.getUserDetails = async (req, res) => {
             totalFollowing,
           },
           follow: followState,
+          status_type: status_type,
           owner: isOwner,
           is_public: false 
         }
@@ -558,9 +586,6 @@ exports.getUserDetails = async (req, res) => {
     const totalFollowers = await Follower.count({ where: { user_id: userId } });
     const totalFollowing = await Follower.count({ where: { follower_id: userId } });
 
-    // Check if current user is the owner of the profile being viewed
-    const isOwner = currentUserId === userId;
-
     return apiResponse.SuccessResponseWithData(res, "User details retrieved successfully", {
       user: {
         ...user.toJSON(),
@@ -569,11 +594,10 @@ exports.getUserDetails = async (req, res) => {
           totalFollowers,
           totalFollowing,
         },
-        follow: isOwner ? null : await Follower.findOne({
-          where: { user_id: userId, follower_id: currentUserId },
-        }) ? "following" : "follow",
+        follow: followState,
+        status_type: status_type,
         owner: isOwner,
-        is_public: true // <-- add this key
+        is_public: true
       },
     });
 
