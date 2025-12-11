@@ -21,83 +21,50 @@ const exploreController = {
             });
             const followingIds = followingRows.map(row => row.user_id);
 
-            // Parse location - handle comma-separated format and match any part
-            // Split by comma and trim each part
-            const parts = location.split(',').map(part => part.trim().toLowerCase()).filter(Boolean);
+            // Parse location - handle comma-separated format (e.g., "miami" or "miami,US")
+            let cityName = '';
+            let countryName = '';
             
-            if (parts.length === 0) {
-                return apiResponse.ValidationError(res, 'Invalid location format');
+            // Split by comma and trim each part
+            const parts = location.split(',').map(part => part.trim()).filter(Boolean);
+            
+            if (parts.length > 0) {
+                cityName = parts[0].toLowerCase();
+                // If multiple parts, last part is country (e.g., "miami,FL,US" -> country is "US")
+                if (parts.length > 1) {
+                    countryName = parts[parts.length - 1].toLowerCase();
+                }
             }
 
-            // Build city OR query - match any part against city field
-            // This will find "miami" even if input is "jsjhf,jsdfjk,miami,sdjfksd"
-            // Examples: 
-            // - "miami,sdfsfh" -> matches "miami" in city
-            // - "sdfsfh,miami" -> matches "miami" in city  
-            // - "jsjhf,jsdfjk,sdjfksd,miami" -> matches "miami" in city
-            const cityConditions = parts.map(part => 
-                models.sequelize.where(
-                    models.sequelize.fn('LOWER', models.sequelize.col('Post.city')),
-                    { [Op.like]: `%${part}%` }
-                )
-            );
-
-            // Build country OR query - match any part against country field
-            const countryConditions = parts.map(part => 
-                models.sequelize.where(
-                    models.sequelize.fn('LOWER', models.sequelize.col('Post.country')),
-                    { [Op.like]: `%${part}%` }
-                )
-            );
-
-            // Strategy: CITY HAS FIRST PRIORITY
-            // 1. First check if any part matches city
-            // 2. If city matches exist, use ONLY city query (ignore country completely)
-            // 3. If no city matches, then check country
-            // 4. If country matches, use country query
-            // 5. If neither matches, return empty
-
-            // Priority 1: Check if any part matches city
-            const cityMatchExists = await Post.findOne({
-                where: { [Op.or]: cityConditions },
-                attributes: ['id'],
-                limit: 1
-            });
-
-            // Build location query based on priority
-            let locationQuery;
+            // Build location query - only match posts where users actually visited this location
+            let locationQuery = {};
             
-            if (cityMatchExists) {
-                // City matches found - use ONLY city query (ignore country completely)
-                // Example: "miami,fl,usa" -> "miami" matches city -> show ONLY Miami city posts
+            if (cityName && countryName) {
+                // Both city and country provided - match BOTH conditions (more precise)
                 locationQuery = {
-                    [Op.or]: cityConditions
+                    [Op.and]: [
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('Post.city')),
+                            { [Op.like]: `%${cityName}%` }
+                        ),
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('Post.country')),
+                            { [Op.like]: `%${countryName}%` }
+                        )
+                    ]
+                };
+            } else if (cityName) {
+                // Only city provided - search by city only
+                locationQuery = {
+                    [Op.and]: [
+                        models.sequelize.where(
+                            models.sequelize.fn('LOWER', models.sequelize.col('Post.city')),
+                            { [Op.like]: `%${cityName}%` }
+                        )
+                    ]
                 };
             } else {
-                // No city matches - check country as fallback
-                const countryMatchExists = await Post.findOne({
-                    where: { [Op.or]: countryConditions },
-                    attributes: ['id'],
-                    limit: 1
-                });
-
-                if (countryMatchExists) {
-                    // Only country matches - use country query
-                    locationQuery = {
-                        [Op.or]: countryConditions
-                    };
-                } else {
-                    // Neither city nor country matches - return empty
-                    return apiResponse.SuccessResponseWithData(res, 'No posts found for this location', {
-                        posts: [],
-                        statistics: {
-                            totalFollowerPosts: 0,
-                            totalPublicPosts: 0,
-                            totalFollowerReviews: 0,
-                            totalPublicReviews: 0
-                        }
-                    });
-                }
+                return apiResponse.ValidationError(res, 'Invalid location format');
             }
 
             // Find posts ONLY from users who actually visited this location

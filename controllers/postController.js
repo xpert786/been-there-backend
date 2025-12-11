@@ -526,23 +526,24 @@ exports.getUserDetails = async (req, res) => {
     const isOwner = currentUserId === userId;
 
     // Check block status
-    // isBlocked = true only if current user has blocked the profile user
-    // If profile user blocked current user, isBlocked = false (blocked user can still see blocker's profile)
+    // isBlocked = true if profile user has blocked the current user (viewer cannot see blocker's profile)
+    // isBlocked = false if current user has blocked the profile user (viewer can see who they blocked)
     let isBlocked = false;
     if (!isOwner) {
-      // Check if current user has blocked the profile user
-      const currentUserBlockedProfile = await UserBlock.findOne({
-        where: { user_id: currentUserId, target_user_id: userId }
+      // Check if profile user has blocked the current user
+      // If profile user blocked current user, current user cannot see profile user's profile
+      const profileUserBlockedCurrent = await UserBlock.findOne({
+        where: { user_id: userId, target_user_id: currentUserId }
       });
 
       // Check if profile user's account is blocked by admin
       const profileUserBlockedByAdmin = user.block === true;
 
       // isBlocked = true only if:
-      // 1. Current user has blocked the profile user, OR
+      // 1. Profile user has blocked the current user (viewer cannot see blocker), OR
       // 2. Profile user's account is blocked by admin
-      // Note: If profile user blocked current user, isBlocked = false (blocked user can see blocker)
-      isBlocked = !!(currentUserBlockedProfile || profileUserBlockedByAdmin);
+      // Note: If current user blocked profile user, isBlocked = false (viewer can see who they blocked)
+      isBlocked = !!(profileUserBlockedCurrent || profileUserBlockedByAdmin);
     }
 
     // Check follow status and pending requests (only if not owner and not blocked)
