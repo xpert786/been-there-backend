@@ -12,6 +12,7 @@ const TopDestination = models.TopDestination;
 const Highlight = models.Highlight;
 const FlaggedContent = models.FlaggedContent;
 const FollowRequest = models.FollowRequest;
+const UserBlock = models.UserBlock;
 
 
 const countryToContinent = require('../utils/countryToContinent');
@@ -524,11 +525,31 @@ exports.getUserDetails = async (req, res) => {
     // Check if current user is the owner of the profile being viewed
     const isOwner = currentUserId === userId;
 
-    // Check follow status and pending requests (only if not owner)
+    // Check block status
+    let isBlocked = false;
+    if (!isOwner) {
+      // Check if current user has blocked the profile user
+      const currentUserBlockedProfile = await UserBlock.findOne({
+        where: { user_id: currentUserId, target_user_id: userId }
+      });
+
+      // Check if profile user has blocked the current user
+      const profileUserBlockedCurrent = await UserBlock.findOne({
+        where: { user_id: userId, target_user_id: currentUserId }
+      });
+
+      // Check if profile user's account is blocked by admin
+      const profileUserBlockedByAdmin = user.block === true;
+
+      // User is blocked if any of these conditions are true
+      isBlocked = !!(currentUserBlockedProfile || profileUserBlockedCurrent || profileUserBlockedByAdmin);
+    }
+
+    // Check follow status and pending requests (only if not owner and not blocked)
     let status_type = null;
     let followState = null;
 
-    if (!isOwner) {
+    if (!isOwner && !isBlocked) {
       // Check if current user is following the profile user
       const isFollowing = await Follower.findOne({
         where: { user_id: userId, follower_id: currentUserId }
@@ -576,6 +597,7 @@ exports.getUserDetails = async (req, res) => {
           },
           follow: followState,
           status_type: status_type,
+          isBlocked: isBlocked,
           owner: isOwner,
           is_public: false 
         }
@@ -596,6 +618,7 @@ exports.getUserDetails = async (req, res) => {
         },
         follow: followState,
         status_type: status_type,
+        isBlocked: isBlocked,
         owner: isOwner,
         is_public: true
       },
