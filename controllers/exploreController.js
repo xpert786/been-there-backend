@@ -50,36 +50,54 @@ const exploreController = {
                 )
             );
 
-            // Strategy:
-            // 1. Always search by city first (match any part against city with OR)
-            // 2. Check if country also has matches by testing a quick query
-            // 3. If country matches exist, filter by both city AND country
-            // 4. If no country matches, show only city-based results
+            // Strategy: CITY HAS FIRST PRIORITY
+            // 1. First check if any part matches city
+            // 2. If city matches exist, use ONLY city query (ignore country completely)
+            // 3. If no city matches, then check country
+            // 4. If country matches, use country query
+            // 5. If neither matches, return empty
 
-            // Quick check: see if any posts match country conditions
-            const countryMatchExists = await Post.findOne({
-                where: { [Op.or]: countryConditions },
+            // Priority 1: Check if any part matches city
+            const cityMatchExists = await Post.findOne({
+                where: { [Op.or]: cityConditions },
                 attributes: ['id'],
                 limit: 1
             });
 
-            // Build location query
+            // Build location query based on priority
             let locationQuery;
-            if (countryMatchExists) {
-                // Both city and country have matches - use AND to require both
-                // This ensures posts match both city AND country
-                locationQuery = {
-                    [Op.and]: [
-                        { [Op.or]: cityConditions },
-                        { [Op.or]: countryConditions }
-                    ]
-                };
-            } else {
-                // Only city matches (or no country match) - use city query only
-                // This shows all posts matching any part in city field
+            
+            if (cityMatchExists) {
+                // City matches found - use ONLY city query (ignore country completely)
+                // Example: "miami,fl,usa" -> "miami" matches city -> show ONLY Miami city posts
                 locationQuery = {
                     [Op.or]: cityConditions
                 };
+            } else {
+                // No city matches - check country as fallback
+                const countryMatchExists = await Post.findOne({
+                    where: { [Op.or]: countryConditions },
+                    attributes: ['id'],
+                    limit: 1
+                });
+
+                if (countryMatchExists) {
+                    // Only country matches - use country query
+                    locationQuery = {
+                        [Op.or]: countryConditions
+                    };
+                } else {
+                    // Neither city nor country matches - return empty
+                    return apiResponse.SuccessResponseWithData(res, 'No posts found for this location', {
+                        posts: [],
+                        statistics: {
+                            totalFollowerPosts: 0,
+                            totalPublicPosts: 0,
+                            totalFollowerReviews: 0,
+                            totalPublicReviews: 0
+                        }
+                    });
+                }
             }
 
             // Find posts ONLY from users who actually visited this location
