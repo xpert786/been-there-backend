@@ -580,10 +580,20 @@ exports.saveFcmToken = async (req, res) => {
       return apiResponse.ValidationError(res, 'FCM token is required');
     }
 
-    // Upsert: If token exists for this user, update; else, create
+    // If this token already exists for ANY other user, delete it so it can be reassigned
+    await FcmToken.destroy({
+      where: {
+        token,
+        user_id: { [Op.ne]: userId }
+      }
+    });
+
+    // Upsert for the current user
     let fcmToken = await FcmToken.findOne({ where: { user_id: userId, token } });
     if (fcmToken) {
-      if (device_type !== undefined) fcmToken.device_type = device_type;
+      if (device_type !== undefined) {
+        fcmToken.device_type = device_type;
+      }
       await fcmToken.save();
     } else {
       fcmToken = await FcmToken.create({ user_id: userId, token, device_type });
